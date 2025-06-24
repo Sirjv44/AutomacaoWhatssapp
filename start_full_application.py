@@ -10,6 +10,7 @@ import os
 import time
 import threading
 import webbrowser
+import platform
 
 def install_backend_dependencies():
     """Instala as dependências do backend"""
@@ -30,9 +31,8 @@ def start_backend():
     """Inicia o servidor backend Flask"""
     print("🐍 Iniciando backend Python...")
     try:
-        # Usa subprocess.Popen com cwd para manter o diretório correto
         process = subprocess.Popen([sys.executable, "app.py"], cwd="backend")
-        # Removed process.wait() to allow backend to run in background
+        # Rodando em background, não espera finalizar aqui
     except Exception as e:
         print(f"❌ Erro no backend: {e}")
 
@@ -40,7 +40,15 @@ def start_frontend():
     """Inicia o servidor frontend React"""
     print("⚛️  Iniciando frontend React...")
     try:
-        subprocess.run(["npm", "run", "dev"])
+        npm_cmd = "npm"
+        if platform.system() == "Windows":
+            npm_cmd = "npm.cmd"
+
+        # Ajuste aqui o caminho do frontend se estiver em subpasta, por exemplo:
+        # frontend_path = os.path.join(os.getcwd(), "frontend")
+        frontend_path = os.getcwd()  # Assumindo que package.json está na raiz
+
+        subprocess.run([npm_cmd, "run", "dev"], cwd=frontend_path)
     except Exception as e:
         print(f"❌ Erro no frontend: {e}")
 
@@ -70,7 +78,7 @@ def main():
         backend_thread.start()
         
         print("⏳ Aguardando backend inicializar...")
-        time.sleep(15)  # Aumentado de 10 para 15 segundos
+        time.sleep(15)  # Tempo para backend iniciar
         
         print("🌐 Abrindo navegador em http://localhost:5173")
         time.sleep(2)
