@@ -428,11 +428,11 @@ class WhatsAppRealAutomation:
             
             # Aguarda login com timeout maior (10 minutos)
             try:
-                await self.page.wait_for_selector('[data-testid="chat-list"]', timeout=600000)  # 10 minutos
+                await self.page.wait_for_selector('div[role="grid"]', timeout=600000)  # 10 minutos
                 print("Login realizado com sucesso!")
             except:
                 try:
-                    await self.page.wait_for_selector('div[data-testid="chat-list"]', timeout=300000)  # 5 minutos
+                    await self.page.wait_for_selector('div[role="grid"]', timeout=300000)  # 5 minutos
                     print("Login realizado com sucesso!")
                 except Exception as e:
                     print(f"Timeout no login: {{e}}")
@@ -455,10 +455,7 @@ class WhatsAppRealAutomation:
             
             # Clica no menu de opções
             menu_selectors = [
-                '[data-testid="Mais opções"]',
-                'div[title="Mais opções"]',
-                'span[data-testid="Mais opções"]',
-                'div[aria-label="Mais opções"]'
+                '[aria-label="Mais opções"]'
             ]
             
             menu_clicked = False
@@ -480,10 +477,7 @@ class WhatsAppRealAutomation:
             
             # Clica em "Novo grupo"
             new_group_selectors = [
-                'div[role="button"]:has-text("Novo grupo")',
-                'li:has-text("Novo grupo")',
-                'div:has-text("New group")',
-                '[data-testid="new-group"]'
+                'text="Novo grupo"'
             ]
             
             group_clicked = False
@@ -503,7 +497,7 @@ class WhatsAppRealAutomation:
             await asyncio.sleep(5)
             
             # Aguarda tela de seleção de contatos
-            await self.page.wait_for_selector('input[data-testid="contact-list-search"]', timeout=20000)
+            await self.page.wait_for_selector('input[placeholder]', timeout=20000)
             print(f"Tela de criacao de grupo aberta para: {{group_name}}")
             return True
             
@@ -517,13 +511,13 @@ class WhatsAppRealAutomation:
             print(f"Buscando contato: {{contact.get('nome', 'Sem nome')}} ({{contact['numero']}})")
             
             # Limpa a caixa de pesquisa
-            search_box = await self.page.wait_for_selector('input[data-testid="contact-list-search"]', timeout=15000)
+            search_box = await self.page.wait_for_selector('input[placeholder]', timeout=15000)
             await search_box.click()
             await search_box.fill('')
             await asyncio.sleep(1)
             
             # Pesquisa pelo nome ou número
-            search_term = contact.get('nome', '') or contact['numero']
+            search_term = contact['numero']
             print(f"Pesquisando por: {{search_term}}")
             
             await search_box.type(search_term, delay=100)
@@ -531,7 +525,7 @@ class WhatsAppRealAutomation:
             
             # Tenta encontrar o contato - sempre clica no primeiro resultado
             contact_selectors = [
-                'div[data-testid="cell-frame-container"]:first-child'
+                'div[role="button"][tabindex="0"] span[title]'
             ]
             
             contact_found = False
@@ -566,10 +560,7 @@ class WhatsAppRealAutomation:
             
             # Clica no botão avançar
             next_selectors = [
-                '[data-testid="next-button"]',
-                'div[role="button"]:has-text("Avançar")',
-                'button:has-text("Avançar")',
-                'div[role="button"]:has-text("Next")'
+                'div[role="button"][aria-label="Avançar"]'
             ]
             
             next_clicked = False
@@ -590,8 +581,7 @@ class WhatsAppRealAutomation:
             
             # Define o nome do grupo
             name_input_selectors = [
-                'input[data-testid="group-subject-input"]',
-                'div[data-testid="group-subject-input"]'
+                'div[role="textbox"][aria-label="Nome do grupo (opcional)"]'
             ]
             
             name_input = None
@@ -614,10 +604,7 @@ class WhatsAppRealAutomation:
             
             # Clica em criar grupo
             create_selectors = [
-                '[data-testid="create-group-button"]',
-                'div[role="button"]:has-text("Criar")',
-                'button:has-text("Criar")',
-                'div[role="button"]:has-text("Create")'
+                'div[role="button"][aria-label="Criar grupo"]'
             ]
             
             create_clicked = False
@@ -653,8 +640,7 @@ class WhatsAppRealAutomation:
             
             # Localiza a caixa de texto
             message_selectors = [
-                '[data-testid="conversation-compose-box-input"]',
-                'div[contenteditable="true"][data-tab="10"]'
+                'div[role="textbox"][aria-label="Digite uma mensagem"]'
             ]
             
             message_box = None

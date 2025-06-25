@@ -113,7 +113,7 @@ class WhatsAppRealAutomation:
         try:
             await self.page.click('div[role="button"][aria-label="Avançar"]')
             await asyncio.sleep(2)
-            subject_input = await self.page.wait_for_selector('input[data-testid="group-subject-input"]', timeout=10000)
+            subject_input = await self.page.wait_for_selector('div[role="textbox"][aria-label="Nome do grupo (opcional)"]', timeout=10000)
             await subject_input.fill(group_name)
             await asyncio.sleep(1)
             await self.page.click('[data-testid="create-group-button"]')

@@ -9,6 +9,9 @@ import { AdvancedPythonGenerator } from './components/AdvancedPythonGenerator';
 import { ContactExtractor } from './components/ContactExtractor';
 import { ApiStatus } from './components/ApiStatus';
 import { useApiHealth } from './hooks/useApi';
+import { AdminConfigurator } from './components/AdminConfigurator';
+
+
 
 function App() {
   const [contacts, setContacts] = useState<Contact[]>([]);
@@ -18,6 +21,8 @@ function App() {
   const [activeTab, setActiveTab] = useState<'automation' | 'extractor'>('automation');
   const [uploadStats, setUploadStats] = useState<any>(null);
   const { isConnected } = useApiHealth();
+  const [manualAdmins, setManualAdmins] = useState<string[]>([]);
+  
   
   const [config, setConfig] = useState<GroupConfig>({
     baseName: 'Grupo VIP',
@@ -109,37 +114,38 @@ function App() {
     }
   }, []);
 
+  
+
   const handleFileUpload = useCallback((stats: any) => {
-    console.log('📁 Arquivo processado com sucesso:', stats);
-    
-    // Atualiza as estatísticas do upload
-    setUploadStats(stats);
-    
-    // Gera contatos baseados nas estatísticas retornadas do backend
-    const simulatedContacts: Contact[] = [];
-    
-    // Adiciona leads simulados
-    for (let i = 0; i < stats.totalLeads; i++) {
-      simulatedContacts.push({
-        nome: `Lead ${i + 1}`,
-        numero: `5562${String(999999999 - i).padStart(9, '0')}`,
-        tipo: 'lead'
-      });
-    }
-    
-    // Adiciona admins simulados
-    for (let i = 0; i < stats.totalAdmins; i++) {
-      simulatedContacts.push({
-        nome: `Admin ${i + 1}`,
-        numero: `5562${String(888888888 - i).padStart(9, '0')}`,
-        tipo: 'administrador'
-      });
-    }
-    
-    console.log('👥 Contatos gerados:', simulatedContacts.length);
-    setContacts(simulatedContacts);
-    setError('');
-  }, []);
+  console.log('📁 Arquivo processado com sucesso:', stats);
+  setUploadStats(stats);
+
+  const simulatedContacts: Contact[] = [];
+
+  // Adiciona leads simulados
+  for (let i = 0; i < stats.totalLeads; i++) {
+    simulatedContacts.push({
+      nome: `Lead ${i + 1}`,
+      numero: `5562${String(999999999 - i).padStart(9, '0')}`,
+      tipo: 'lead'
+    });
+  }
+
+  // Admins manuais (esses vêm do configurador)
+  const adminContacts: Contact[] = manualAdmins.map((numero, i) => ({
+    nome: `Admin Manual ${i + 1}`,
+    numero,
+    tipo: 'administrador'
+  }));
+
+  const allContacts = [...adminContacts, ...simulatedContacts];
+
+console.log('👥 Contatos simulados com admins:', allContacts.length);
+setContacts(allContacts);
+setError('');
+
+
+}, [manualAdmins]);
 
   const handleError = useCallback((errorMessage: string) => {
     console.error('❌ Erro no upload:', errorMessage);
@@ -408,6 +414,12 @@ function App() {
                     </div>
                   )}
                 </div>
+
+                {/* Admin Configurator */}
+                  <AdminConfigurator
+                    admins={manualAdmins}
+                    onChange={setManualAdmins}
+                  />
 
                 {/* Advanced Automation Configuration */}
                 {contacts.length > 0 && lgpdConsent && (
