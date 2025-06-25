@@ -629,6 +629,34 @@ class WhatsAppRealAutomation:
         except Exception as e:
             print(f"Erro ao finalizar criacao do grupo: {{e}}")
             return False
+
+    async def promote_to_admin(self, contact_name):
+    """Promove um contato a administrador do grupo"""
+    try:
+        print(f"Promovendo {{contact_name}} a administrador...")
+
+        # Abre informações do grupo
+        await self.page.click('header')  # Clica no topo para abrir info do grupo
+        await asyncio.sleep(3)
+
+        # Rola até a lista de participantes
+        await self.page.keyboard.press("End")
+        await asyncio.sleep(2)
+
+        # Clica no contato
+        await self.page.click(f'span[title="{{contact_name}}"]')
+        await asyncio.sleep(2)
+
+        # Clica em "Tornar admin do grupo"
+        await self.page.click('text="Tornar admin do grupo"')
+        await asyncio.sleep(2)
+
+        print(f"{{contact_name}} promovido a administrador.")
+        return True
+    except Exception as e:
+        print(f"Erro ao promover {{contact_name}} a admin: {e}")
+        return False
+                
     
     async def send_welcome_message(self, group_name):
         """Envia mensagem de boas-vindas"""
@@ -725,7 +753,13 @@ class WhatsAppRealAutomation:
                 if not await self.finalize_group_creation(group_name):
                     print(f"ERRO: Falha ao finalizar grupo {{group_name}}")
                     continue
-                
+                # Promove administradores
+                if admins:
+                    for admin in admins:
+                        nome = admin.get('nome', '')
+                        if nome:
+                            await self.promote_to_admin(nome)
+
                 # Envia mensagem de boas-vindas
                 await self.send_welcome_message(group_name)
                 
