@@ -551,51 +551,45 @@ class OptimizedWhatsAppAutomation:
             
             await asyncio.sleep(delay_max)
             
-            # PASSO 3: Procura pelo participante na lista
-            await self.update_status(f"Procurando participante", log_message=f"🔍 Procurando {nome} na lista de participantes")
-            
-            participant_selectors = [
-                f'span[title="{nome}"]',
-                f'span[title="{numero}"]',
-                f'div[data-testid="cell-frame-container"]:has-text("{nome}")',
-                f'div[data-testid="cell-frame-container"]:has-text("{numero}")',
-                'div[data-testid="cell-frame-container"]'
-            ]
-            
-            participant_found = False
-            for selector in participant_selectors:
-                try:
-                    if selector == 'div[data-testid="cell-frame-container"]':
-                        # Fallback: procura em todos os participantes
-                        participants = await self.page.query_selector_all(selector)
-                        await self.update_status(f"Verificando participantes", log_message=f"🔍 Encontrados {len(participants)} participantes")
-                        
-                        for i, participant in enumerate(participants):
-                            try:
-                                text_content = await participant.inner_text()
-                                if nome in text_content or numero in text_content:
-                                    await self.update_status(f"Participante encontrado", log_message=f"✅ {nome} encontrado na posição {i+1}")
-                                    await participant.click()
-                                    participant_found = True
-                                    break
-                            except:
-                                continue
-                        if participant_found:
-                            break
-                    else:
-                        await self.page.wait_for_selector(selector, timeout=3000)
-                        await self.page.click(selector)
-                        participant_found = True
-                        break
-                except:
-                    continue
-            
-            if not participant_found:
-                await self.update_status(f"Participante não encontrado", log_message=f"⚠️ {nome} não encontrado na lista")
+            # PASSO 3: Abrir busca de participantes no painel lateral do grupo
+            await self.update_status("Rolando painel do grupo", log_message="🧭 Rolando painel lateral para revelar a lupa de busca")
+
+            try:
+                # Rola até o final para mostrar a lupa de busca de participantes
+                await self.page.evaluate("""
+                    () => {
+                        const scrollContainer = document.querySelector('div.x1n2onr6.xyw6214.x78zum5.x1r8uery.x1iyjqo2.xdt5ytf.x6ikm8r.x1odjw0f.x1hc1fzr');
+                        if (scrollContainer) {
+                            scrollContainer.scrollTop = scrollContainer.scrollHeight;
+                        }
+                    }
+                """)
+                await asyncio.sleep(2)
+
+                # Clica no botão da lupa que abre a busca de participantes (ícone: search-refreshed)
+                await self.page.wait_for_selector('span[data-icon="search-refreshed"]', timeout=5000)
+                lupas = await self.page.query_selector_all('span[data-icon="search-refreshed"]')
+                if len(lupas) > 1:
+                    await lupas[1].scroll_into_view_if_needed()
+                    await asyncio.sleep(1)  # Pequeno delay visual
+                    await lupas[1].click()
+                    await self.update_status("Busca aberta", log_message="🔍 Lupa dos participantes clicada com sucesso")
+                else:
+                    await self.update_status("Erro na busca", log_message="❌ Não encontrou a lupa de participantes (índice 1)")
+
+                # Aguarda a caixa de texto da busca aparecer e digita o número local
+                search_box = await self.page.wait_for_selector('div[role="textbox"][contenteditable="true"]', timeout=5000)
+                numero_local = numero.replace("55629", "")
+                await search_box.fill('')
+                await asyncio.sleep(0.2)
+                await search_box.type(numero_local, delay=100)
+
+                await self.update_status("Buscando número", log_message=f"🔎 Buscando participante com número: {numero_local}")
+
+            except Exception as e:
+                await self.update_status("Erro na rolagem ou busca", log_message=f"❌ Erro ao rolar ou clicar na lupa: {e}")
                 await self.go_back_to_chat()
                 return False
-            
-            await asyncio.sleep(delay_min)
             
             # PASSO 4: Clica em "Tornar admin do grupo"
             await self.update_status(f"Tornando admin", log_message=f"👑 Clicando em 'Tornar admin do grupo'")
@@ -691,7 +685,7 @@ class OptimizedWhatsAppAutomation:
             
             if len(leads) == 0:
                 leads = self.contacts
-                admins = []
+                
             
             groups_needed = max(1, (len(leads) + 998) // 999)
             app_state['automation_status']['totalGroups'] = groups_needed
