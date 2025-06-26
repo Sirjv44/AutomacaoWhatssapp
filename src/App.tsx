@@ -11,8 +11,6 @@ import { ApiStatus } from './components/ApiStatus';
 import { useApiHealth } from './hooks/useApi';
 import { AdminConfigurator } from './components/AdminConfigurator';
 
-
-
 function App() {
   const [contacts, setContacts] = useState<Contact[]>([]);
   const [error, setError] = useState<string>('');
@@ -21,8 +19,7 @@ function App() {
   const [activeTab, setActiveTab] = useState<'automation' | 'extractor'>('automation');
   const [uploadStats, setUploadStats] = useState<any>(null);
   const { isConnected } = useApiHealth();
-  const [manualAdmins, setManualAdmins] = useState<string[]>([]);
-  
+  const [manualAdmins, setManualAdmins] = useState<Contact[]>([]);
   
   const [config, setConfig] = useState<GroupConfig>({
     baseName: 'Grupo VIP',
@@ -114,38 +111,60 @@ function App() {
     }
   }, []);
 
-  
+  // Função que recebe o array de números do AdminConfigurator e converte para Contact[]
+  const handleManualAdminsChange = useCallback((newAdminNumbers: string[]) => {
+    const newAdminContacts: Contact[] = newAdminNumbers.map((num, i) => ({
+      nome: `Admin Manual ${i + 1}`,
+      numero: num,
+      tipo: 'administrador'
+    }));
+
+    setManualAdmins(newAdminContacts);
+    console.log('👑 Administradores manuais atualizados:', newAdminContacts);
+  }, []);
 
   const handleFileUpload = useCallback((stats: any) => {
-  console.log('📁 Arquivo processado com sucesso:', stats);
-  setUploadStats(stats);
+    console.log('📁 Arquivo processado com sucesso:', stats);
+    setUploadStats(stats);
 
-  const simulatedContacts: Contact[] = [];
+    // Gera contatos baseados nas estatísticas retornadas do backend
+    const simulatedContacts: Contact[] = [];
 
-  // Adiciona leads simulados
-  for (let i = 0; i < stats.totalLeads; i++) {
-    simulatedContacts.push({
-      nome: `Lead ${i + 1}`,
-      numero: `5562${String(999999999 - i).padStart(9, '0')}`,
-      tipo: 'lead'
+    // Adiciona leads simulados
+    for (let i = 0; i < stats.totalLeads; i++) {
+      simulatedContacts.push({
+        nome: `Lead ${i + 1}`,
+        numero: `5562${String(999999999 - i).padStart(9, '0')}`,
+        tipo: 'lead'
+      });
+    }
+
+    // Adiciona admins do CSV (se houver)
+    for (let i = 0; i < stats.totalAdmins; i++) {
+      simulatedContacts.push({
+        nome: `Admin CSV ${i + 1}`,
+        numero: `5562${String(888888888 - i).padStart(9, '0')}`,
+        tipo: 'administrador'
+      });
+    }
+
+    // Combina com administradores manuais
+    const allContacts = [...manualAdmins, ...simulatedContacts];
+    
+    // Ordena para que administradores fiquem primeiro
+    allContacts.sort((a, b) => {
+      if (a.tipo === b.tipo) return 0;
+      if (a.tipo === 'administrador') return -1;
+      return 1;
     });
-  }
 
-  // Admins manuais (esses vêm do configurador)
-  const adminContacts: Contact[] = manualAdmins.map((numero, i) => ({
-    nome: `Admin Manual ${i + 1}`,
-    numero,
-    tipo: 'administrador'
-  }));
-
-  const allContacts = [...adminContacts, ...simulatedContacts];
-
-console.log('👥 Contatos simulados com admins:', allContacts.length);
-setContacts(allContacts);
-setError('');
-
-
-}, [manualAdmins]);
+    console.log('👥 Contatos finais (CSV + Manuais):', allContacts.length);
+    console.log('👑 Total de administradores:', allContacts.filter(c => c.tipo === 'administrador').length);
+    console.log('👤 Total de leads:', allContacts.filter(c => c.tipo === 'lead').length);
+    
+    setContacts(allContacts);
+    setError('');
+  }, [manualAdmins]);
 
   const handleError = useCallback((errorMessage: string) => {
     console.error('❌ Erro no upload:', errorMessage);
@@ -157,7 +176,7 @@ setError('');
     }
   }, []);
 
-  // Condições para habilitar o botão de iniciar
+  // Condições para habilitar o botão de iniciar - CORRIGIDO
   const canStart = useMemo(() => {
     const hasContacts = contacts.length > 0;
     const hasGroupName = config.baseName.trim() !== '';
@@ -170,7 +189,8 @@ setError('');
       hasGroupName,
       groupName: config.baseName,
       hasLgpdConsent,
-      hasApiConnection
+      hasApiConnection,
+      finalCanStart: hasContacts && hasGroupName && hasLgpdConsent && hasApiConnection
     });
     
     return hasContacts && hasGroupName && hasLgpdConsent && hasApiConnection;
@@ -282,18 +302,30 @@ setError('');
           </div>
         )}
 
-        {/* Debug Info */}
+        {/* Debug Info - MELHORADO */}
         {process.env.NODE_ENV === 'development' && (
           <div className="mb-8 bg-yellow-50 border border-yellow-200 rounded-xl p-4 shadow-sm">
-            <h4 className="font-medium text-yellow-800 mb-2">🔍 Debug Info:</h4>
+            <h4 className="font-medium text-yellow-800 mb-2">🔍 Debug Info - Por que não executa?</h4>
             <div className="text-sm text-yellow-700 space-y-1">
-              <p>• Contatos carregados: {contacts.length}</p>
-              <p>• LGPD aceito: {lgpdConsent ? 'Sim' : 'Não'}</p>
-              <p>• API conectada: {isConnected ? 'Sim' : 'Não'}</p>
-              <p>• Nome do grupo: "{config.baseName}"</p>
-              <p>• Pode iniciar: {canStart ? 'Sim' : 'Não'}</p>
-              <p>• Upload stats: {uploadStats ? 'Sim' : 'Não'}</p>
+              <p>• Contatos carregados: <strong>{contacts.length}</strong> (Leads: {contacts.filter(c => c.tipo === 'lead').length}, Admins: {contacts.filter(c => c.tipo === 'administrador').length})</p>
+              <p>• LGPD aceito: <strong>{lgpdConsent ? 'SIM' : 'NÃO'}</strong></p>
+              <p>• API conectada: <strong>{isConnected ? 'SIM' : 'NÃO'}</strong></p>
+              <p>• Nome do grupo: <strong>"{config.baseName}"</strong></p>
+              <p>• Pode iniciar: <strong>{canStart ? 'SIM' : 'NÃO'}</strong></p>
+              <p>• Upload stats: <strong>{uploadStats ? 'SIM' : 'NÃO'}</strong></p>
+              <p>• Admins manuais: <strong>{manualAdmins.length}</strong></p>
             </div>
+            {!canStart && (
+              <div className="mt-2 p-2 bg-red-100 rounded border border-red-300">
+                <p className="text-red-800 text-sm font-medium">❌ Não pode iniciar! Faltam:</p>
+                <ul className="text-red-700 text-xs mt-1 list-disc list-inside">
+                  {contacts.length === 0 && <li>Carregar CSV com contatos</li>}
+                  {!lgpdConsent && <li>Aceitar termos LGPD</li>}
+                  {!isConnected && <li>Backend conectado</li>}
+                  {!config.baseName.trim() && <li>Nome do grupo definido</li>}
+                </ul>
+              </div>
+            )}
           </div>
         )}
 
@@ -398,11 +430,13 @@ setError('');
                     </div>
                     <h2 className="text-xl font-semibold text-gray-900">Upload Integrado com Backend</h2>
                   </div>
-                  <IntegratedFileUpload 
-                    onFileUpload={handleFileUpload} 
-                    onError={handleError} 
+                  <IntegratedFileUpload
+                    onFileUpload={handleFileUpload}
+                    onError={handleError}
                     lgpdConsent={lgpdConsent}
+                    manualAdmins={manualAdmins}
                   />
+
                   {!lgpdConsent && (
                     <div className="mt-4">
                       <button
@@ -416,10 +450,10 @@ setError('');
                 </div>
 
                 {/* Admin Configurator */}
-                  <AdminConfigurator
-                    admins={manualAdmins}
-                    onChange={setManualAdmins}
-                  />
+                <AdminConfigurator
+                  admins={manualAdmins.map(a => a.numero)}
+                  onChange={handleManualAdminsChange}
+                />
 
                 {/* Advanced Automation Configuration */}
                 {contacts.length > 0 && lgpdConsent && (

@@ -20,9 +20,26 @@ export const IntegratedAutomationProgress: React.FC<IntegratedAutomationProgress
 
   const handleStart = async () => {
     try {
-      await apiService.startAutomation(config);
+      console.log('🚀 Iniciando automação com config:', config);
+      console.log('🔍 Status atual canStart:', canStart);
+      
+      if (!canStart) {
+        console.error('❌ Não pode iniciar - condições não atendidas');
+        alert('❌ Não é possível iniciar a automação. Verifique se:\n\n• CSV foi carregado com contatos\n• LGPD foi aceito\n• Backend está conectado\n• Nome do grupo foi definido');
+        return;
+      }
+      
+      console.log('📤 Enviando configuração para o backend...');
+      const result = await apiService.startAutomation(config);
+      console.log('✅ Automação iniciada:', result);
+      
+      // Mostra mensagem de sucesso
+      alert('🚀 Automação iniciada com sucesso!\n\nO navegador Chrome será aberto automaticamente.\nEscaneie o QR Code do WhatsApp para continuar.');
+      
     } catch (error) {
-      console.error('Failed to start automation:', error);
+      console.error('❌ Erro ao iniciar automação:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Erro desconhecido';
+      alert(`❌ Erro ao iniciar automação:\n\n${errorMessage}\n\nVerifique se o backend está funcionando e tente novamente.`);
     }
   };
 
@@ -105,6 +122,16 @@ export const IntegratedAutomationProgress: React.FC<IntegratedAutomationProgress
     }
   };
 
+  // Debug info para diagnosticar problemas
+  const debugInfo = {
+    canStart,
+    isScheduled,
+    configExists: !!config,
+    configBaseName: config?.baseName,
+    statusIsRunning: status.isRunning,
+    isLoading
+  };
+
   return (
     <div className="bg-white rounded-xl border border-gray-200 p-6 shadow-sm space-y-6">
       <div className="flex items-center justify-between">
@@ -140,6 +167,7 @@ export const IntegratedAutomationProgress: React.FC<IntegratedAutomationProgress
                       ? 'bg-gradient-to-r from-green-600 to-green-700 text-white hover:from-green-700 hover:to-green-800 hover:shadow-xl'
                       : 'bg-gray-400 text-gray-600 cursor-not-allowed'
                   }`}
+                  title={!canStart ? 'Verifique se CSV foi carregado, LGPD aceito e backend conectado' : ''}
                 >
                   {status.canResume ? <RotateCcw className="h-4 w-4" /> : <Play className="h-4 w-4" />}
                   <span>{status.canResume ? 'Retomar' : 'Iniciar'} Automação</span>
@@ -178,6 +206,34 @@ export const IntegratedAutomationProgress: React.FC<IntegratedAutomationProgress
           </button>
         </div>
       </div>
+
+      {/* Debug Info - Mostrar apenas em desenvolvimento */}
+      {process.env.NODE_ENV === 'development' && (
+        <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+          <h4 className="font-medium text-yellow-800 mb-2">🔍 Debug - Por que não executa?</h4>
+          <div className="text-sm text-yellow-700 space-y-1">
+            <p>• canStart: <strong>{debugInfo.canStart ? 'SIM' : 'NÃO'}</strong></p>
+            <p>• isScheduled: <strong>{debugInfo.isScheduled ? 'SIM' : 'NÃO'}</strong></p>
+            <p>• Config existe: <strong>{debugInfo.configExists ? 'SIM' : 'NÃO'}</strong></p>
+            <p>• Nome do grupo: <strong>"{debugInfo.configBaseName || 'VAZIO'}"</strong></p>
+            <p>• Status isRunning: <strong>{debugInfo.statusIsRunning ? 'SIM' : 'NÃO'}</strong></p>
+            <p>• isLoading: <strong>{debugInfo.isLoading ? 'SIM' : 'NÃO'}</strong></p>
+          </div>
+          {!canStart && (
+            <div className="mt-2 p-2 bg-red-100 rounded border border-red-300">
+              <p className="text-red-800 text-sm font-medium">
+                ❌ Não pode iniciar! Verifique se:
+              </p>
+              <ul className="text-red-700 text-xs mt-1 list-disc list-inside">
+                <li>CSV foi carregado com contatos</li>
+                <li>LGPD foi aceito</li>
+                <li>Backend está conectado</li>
+                <li>Nome do grupo foi definido</li>
+              </ul>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Status Cards */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -339,6 +395,7 @@ export const IntegratedAutomationProgress: React.FC<IntegratedAutomationProgress
                   <li>• <strong>Proteção anti-ban:</strong> Delays inteligentes e controle de sessão</li>
                   <li>• <strong>Monitoramento:</strong> Status e logs atualizados automaticamente</li>
                   <li>• <strong>Relatórios:</strong> Download direto via API</li>
+                  <li>• <strong>Promoção de admins:</strong> Garantida após criação dos grupos</li>
                 </ul>
               </div>
             </div>

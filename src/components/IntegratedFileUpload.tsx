@@ -1,65 +1,104 @@
 import React, { useCallback, useState } from 'react';
 import { Upload, FileText, AlertCircle, CheckCircle, AlertTriangle, Users, Crown, Shield, X } from 'lucide-react';
 import { apiService, UploadResponse } from '../services/api';
+import Papa from 'papaparse';
+
 
 interface IntegratedFileUploadProps {
   onFileUpload: (stats: UploadResponse['stats']) => void;
   onError: (error: string) => void;
   lgpdConsent: boolean;
+  manualAdmins: Contact[]; // novo
 }
 
-export const IntegratedFileUpload: React.FC<IntegratedFileUploadProps> = ({ 
-  onFileUpload, 
-  onError, 
-  lgpdConsent 
+export interface Contact {
+  nome?: string;
+  numero: string;
+  tipo: 'lead' | 'administrador';
+}
+
+export const IntegratedFileUpload: React.FC<IntegratedFileUploadProps> = ({
+  onFileUpload,
+  onError,
+  lgpdConsent,
+  manualAdmins // ← aqui
 }) => {
+
   const [isDragOver, setIsDragOver] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
   const [uploadResult, setUploadResult] = useState<UploadResponse | null>(null);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
 
   const processFile = useCallback(async (file: File) => {
-    console.log('📁 Processando arquivo:', file.name);
-    
-    if (!lgpdConsent) {
-      onError('É necessário aceitar os termos LGPD antes de fazer upload de contatos');
-      return;
+  console.log('📁 Processando arquivo:', file.name);
+
+  if (!lgpdConsent) {
+    onError('É necessário aceitar os termos LGPD antes de fazer upload de contatos');
+    return;
+  }
+
+  if (!file.name.toLowerCase().endsWith('.csv')) {
+    onError('Por favor, selecione um arquivo CSV válido');
+    setSelectedFile(null);
+    return;
+  }
+
+  setSelectedFile(file);
+  setIsUploading(true);
+  setUploadResult(null);
+
+  try {
+    console.log('🔄 Lendo CSV local...');
+    const csvText = await file.text();
+
+    // Parse o CSV original
+    const parsed = Papa.parse<Contact>(csvText, {
+      header: true,
+      skipEmptyLines: true,
+    });
+
+    if (parsed.errors.length > 0) {
+      throw new Error('Erro ao ler o arquivo CSV');
     }
 
-    if (!file.name.toLowerCase().endsWith('.csv')) {
-      onError('Por favor, selecione um arquivo CSV válido');
-      setSelectedFile(null);
-      return;
-    }
+    const originalContacts = parsed.data.filter((c) => c.numero); // ignora contatos vazios
 
-    setSelectedFile(file);
-    setIsUploading(true);
+    console.log(`📊 CSV original tem ${originalContacts.length} contatos`);
+    console.log('➕ Adicionando administradores manuais:', manualAdmins);
+
+    // Junta os contatos do CSV com os admins da tela
+    const allContacts: Contact[] = [...originalContacts, ...manualAdmins];
+
+    // Converte de volta para CSV
+    const mergedCSV = Papa.unparse(allContacts, {
+      columns: ['nome', 'numero', 'tipo'],
+    });
+
+    // Cria um novo arquivo para enviar
+    const mergedFile = new File([mergedCSV], `merged_${file.name}`, {
+      type: 'text/csv',
+    });
+
+    console.log('📤 Enviando arquivo modificado para o backend...');
+    const result = await apiService.uploadCSV(mergedFile);
+    console.log('✅ Resultado do backend:', result);
+
+    setUploadResult(result);
+    onFileUpload(result.stats);
+    onError('');
+
+  } catch (error) {
+    console.error('❌ Erro no upload:', error);
+    const errorMessage = error instanceof Error ? error.message : 'Erro ao processar arquivo';
+    onError(errorMessage);
+    setSelectedFile(null);
     setUploadResult(null);
+  } finally {
+    setIsUploading(false);
+  }
+}, [onFileUpload, onError, lgpdConsent, manualAdmins]);
 
-    try {
-      console.log('🔄 Enviando arquivo para o backend...');
-      const result = await apiService.uploadCSV(file);
-      console.log('✅ Resultado do backend:', result);
-      
-      setUploadResult(result);
-      
-      // Chama o callback para atualizar o estado da aplicação principal
-      console.log('📤 Chamando callback onFileUpload com stats:', result.stats);
-      onFileUpload(result.stats);
-      
-      // Limpa qualquer erro anterior
-      onError('');
-      
-    } catch (error) {
-      console.error('❌ Erro no upload:', error);
-      const errorMessage = error instanceof Error ? error.message : 'Erro ao processar arquivo';
-      onError(errorMessage);
-      setSelectedFile(null);
-      setUploadResult(null);
-    } finally {
-      setIsUploading(false);
-    }
-  }, [onFileUpload, onError, lgpdConsent]);
+
 
   const handleDrop = useCallback((e: React.DragEvent) => {
     e.preventDefault();
