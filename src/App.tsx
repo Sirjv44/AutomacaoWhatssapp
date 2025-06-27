@@ -10,6 +10,7 @@ import { ContactExtractor } from './components/ContactExtractor';
 import { ApiStatus } from './components/ApiStatus';
 import { useApiHealth } from './hooks/useApi';
 import { AdminConfigurator } from './components/AdminConfigurator';
+import { QRCodeViewer } from './QRCodeViewer';
 
 function App() {
   const [contacts, setContacts] = useState<Contact[]>([]);
@@ -208,6 +209,8 @@ function App() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-purple-50 via-white to-blue-50">
+      <h1>Faça login no WhatsApp</h1>
+      <QRCodeViewer />
       <LGPDConsent 
         isVisible={showLgpdModal} 
         onConsent={handleLgpdConsent} 

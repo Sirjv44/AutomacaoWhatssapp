@@ -77,6 +77,15 @@ export const useAutomationStatus = () => {
   return { status, isLoading, fetchStatus };
 };
 
+export const QRCodeViewer = () => {
+  const { qrCodeBase64, error } = useQrCode();
+
+    if (error) return <div>Erro: {error}</div>;
+    if (!qrCodeBase64) return <div>Carregando QR Code...</div>;
+
+    return <img src={`data:image/png;base64,${qrCodeBase64}`} alt="QR Code WhatsApp" />;
+};
+
 export const useExtractionStatus = () => {
   const [status, setStatus] = useState<ExtractionStatus>({
     isRunning: false,
