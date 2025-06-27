@@ -1,17 +1,13 @@
-# Usa imagem base do Playwright + Python
 FROM mcr.microsoft.com/playwright/python:v1.48.0-focal
 
-# Cria diretório de trabalho
 WORKDIR /app
 
-# Copia os arquivos para dentro do container
 COPY . .
 
-# Instala dependências Python
-RUN pip install --upgrade pip && pip install -r requirements.txt
+# Instala as dependências corretas
+RUN pip install --upgrade pip && pip install -r backend/requirements.txt
 
-# Expõe a porta usada pelo Gunicorn (altere se precisar)
 EXPOSE 10000
 
-# Comando para rodar o servidor
-CMD ["gunicorn", "backend.app:app", "--bind", "0.0.0.0:10000"] 
+# Garante que o app seja encontrado dentro da pasta backend
+CMD ["gunicorn", "backend.app:app", "--bind", "0.0.0.0:10000"]
