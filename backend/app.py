@@ -586,8 +586,21 @@ class OptimizedWhatsAppAutomation:
 
                 await self.update_status("Buscando número", log_message=f"🔎 Buscando participante com número: {numero_local}")
 
+                # Aguarda resultado e clica no participante
+                await self.page.wait_for_selector('div[role="button"][tabindex="-1"] span[title]', timeout=5000)
+                participantes_filtrados = await self.page.query_selector_all('div[role="button"][tabindex="-1"] span[title]')
+                if participantes_filtrados:
+                    await participantes_filtrados[0].scroll_into_view_if_needed()
+                    await asyncio.sleep(1)
+                    await participantes_filtrados[0].click()
+                    await self.update_status("Participante selecionado", log_message="✅ Participante clicado na lista de busca")
+                else:
+                    await self.update_status("Participante não encontrado", log_message="⚠️ Nenhum participante retornado pela busca")
+                    await self.go_back_to_chat()
+                    return False
+
             except Exception as e:
-                await self.update_status("Erro na rolagem ou busca", log_message=f"❌ Erro ao rolar ou clicar na lupa: {e}")
+                await self.update_status("Erro ao buscar participante", log_message=f"❌ Erro ao clicar na lupa ou buscar participante: {e}")
                 await self.go_back_to_chat()
                 return False
             
@@ -595,7 +608,7 @@ class OptimizedWhatsAppAutomation:
             await self.update_status(f"Tornando admin", log_message=f"👑 Clicando em 'Tornar admin do grupo'")
             
             admin_selectors = [
-                'text="Tornar admin do grupo"',
+                'text="Promover a admin do grupo"',
                 'div[role="button"]:has-text("Tornar admin do grupo")',
                 'li:has-text("Tornar admin do grupo")',
                 'div:has-text("Tornar admin")',
@@ -631,28 +644,40 @@ class OptimizedWhatsAppAutomation:
             return False
     
     async def go_back_to_chat(self):
-        """Volta para o chat principal"""
+        
         try:
             delay_min = self.config.get('delay', {}).get('min', 2)
-            
+
+            # Primeiro tenta fechar o painel lateral de busca se estiver aberto
+            try:
+                close_button = await self.page.query_selector('div[role="button"][aria-label="Fechar"] span[data-icon="close-refreshed"]')
+                if close_button:
+                    await close_button.click()
+                    await self.update_status("Fechando painel lateral", log_message="🔙 Painel lateral de busca fechado")
+                    await asyncio.sleep(delay_min / 2)
+            except:
+                pass  # Continua mesmo que não consiga fechar
+
+            # Seletores para voltar para o chat
             back_selectors = [
                 '[data-testid="back"]',
                 'button[aria-label="Voltar"]',
                 'div[role="button"][aria-label="Back"]',
                 'span[data-icon="back"]'
             ]
-            
+
             # Pode precisar clicar duas vezes para voltar completamente
             for _ in range(2):
                 for selector in back_selectors:
                     try:
                         await self.page.click(selector)
+                        await self.update_status("Voltando", log_message=f"↩️ Clique em {selector}")
                         await asyncio.sleep(delay_min / 2)
                         break
                     except:
                         continue
                 await asyncio.sleep(delay_min / 2)
-            
+
         except Exception as e:
             await self.update_status("Erro ao voltar", log_message=f"⚠️ Erro ao voltar para o chat: {e}")
     
