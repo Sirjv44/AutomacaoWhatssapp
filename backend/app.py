@@ -900,6 +900,10 @@ def run_automation_thread(contacts, config):
         except:
             pass
 
+@app.route('/', methods=['GET'])
+def index():
+    return jsonify({"message": "API rodando!"})
+
 @app.route('/api/health', methods=['GET'])
 def health_check():
     """Verifica se a API está funcionando"""
