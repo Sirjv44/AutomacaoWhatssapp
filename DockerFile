@@ -1,5 +1,5 @@
 # Usa imagem base do Playwright + Python
-FROM mcr.microsoft.com/playwright/python:v1.40.0-focal
+FROM mcr.microsoft.com/playwright/python:v1.48.0-focal
 
 # Cria diretório de trabalho
 WORKDIR /app
