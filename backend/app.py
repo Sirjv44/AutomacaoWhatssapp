@@ -19,7 +19,6 @@ from pathlib import Path
 from flask import Flask, request, jsonify, send_file
 from flask_cors import CORS
 import pandas as pd
-import base64
 
 # Configuração de logging
 logging.basicConfig(level=logging.INFO)
@@ -243,41 +242,69 @@ class OptimizedWhatsAppAutomation:
             app_state['automation_status']['logs'].append(f"{datetime.now().strftime('%H:%M:%S')} - {log_message}")
             print(f"📝 {log_message}")
     
-    import base64
-
-async def start_browser(self):
-    try:
-        from playwright.async_api import async_playwright
-        self.playwright = await async_playwright().start()
-        self.browser = await self.playwright.chromium.launch(headless=True, args=[...])
-        context = await self.browser.new_context(...)
-        self.page = await context.new_page()
-
-        await self.page.goto('https://web.whatsapp.com', wait_until='networkidle')
-
-        # Captura o QR Code (canvas) na tela
-        qr_element = await self.page.wait_for_selector('canvas[aria-label="Scan me!"]', timeout=60000)
-        qr_buffer = await qr_element.screenshot()
-        qr_base64 = base64.b64encode(qr_buffer).decode('utf-8')
-
-        # Salva no estado global para servir na API
-        app_state['last_qr_code'] = qr_base64
-
-        # Agora espera o login, que é identificado pelo grid do WhatsApp
+    async def start_browser(self):
+        """Inicia navegador otimizado com persistência de sessão"""
         try:
-            await self.page.wait_for_selector('div[role="grid"]', timeout=300000)  # 5 minutos
-            await self.update_status("Login realizado!", log_message="Login no WhatsApp Web realizado com sucesso")
-            # Salva a sessão após login
-            await context.storage_state(path="whatsapp_state.json")
-        except:
-            # Timeout para login
-            pass
+            await self.update_status("Iniciando navegador...", log_message="Abrindo navegador Playwright")
 
-        return True
-    except Exception as e:
-        await self.update_status("Erro no navegador", log_message=f"Erro ao iniciar navegador: {e}")
-        return False
+            from playwright.async_api import async_playwright
 
+            self.playwright = await async_playwright().start()
+
+            self.browser = await self.playwright.chromium.launch(
+                headless=False,
+                args=[
+                    '--no-sandbox',
+                    '--disable-setuid-sandbox',
+                    '--disable-dev-shm-usage',
+                    '--disable-web-security',
+                    '--disable-features=VizDisplayCompositor',
+                    '--disable-background-timer-throttling',
+                    '--disable-backgrounding-occluded-windows',
+                    '--disable-renderer-backgrounding',
+                    '--disable-blink-features=AutomationControlled'
+                ]
+            )
+
+            # Verifica se já existe sessão salva
+            storage_path = "whatsapp_state.json"
+            context = await self.browser.new_context(
+                viewport={'width': 1366, 'height': 768},
+                user_agent='Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+                extra_http_headers={'Accept-Language': 'pt-BR,pt;q=0.9,en;q=0.8'},
+                storage_state=storage_path if os.path.exists(storage_path) else None
+            )
+
+            # Remove rastros de automação
+            await context.add_init_script("""
+                Object.defineProperty(navigator, 'webdriver', { get: () => undefined });
+                window.chrome = { runtime: {} };
+                Object.defineProperty(navigator, 'plugins', { get: () => [1, 2, 3] });
+                Object.defineProperty(navigator, 'languages', { get: () => ['pt-BR', 'pt', 'en'] });
+            """)
+
+            self.page = await context.new_page()
+
+            await self.update_status("Abrindo WhatsApp Web...", log_message="Acessando https://web.whatsapp.com")
+            await self.page.goto('https://web.whatsapp.com', wait_until='networkidle')
+
+            # Verifica se já está logado
+            try:
+                await self.page.wait_for_selector('div[role="grid"]', timeout=15000)
+                await self.update_status("Login detectado!", log_message="Sessão existente detectada")
+            except:
+                await self.update_status("Aguardando login via QR Code...", log_message="Escaneie o QR Code com seu celular")
+                await self.page.wait_for_selector('div[role="grid"]', timeout=300000)
+                await self.update_status("Login realizado!", log_message="Login via QR Code efetuado")
+
+                # Salva sessão
+                await context.storage_state(path=storage_path)
+
+            return True
+
+        except Exception as e:
+            await self.update_status("Erro no navegador", log_message=f"Erro ao iniciar navegador: {e}")
+            return False
     
     async def create_group_fast(self, group_name):
         """Cria grupo com seletores otimizados"""
@@ -1025,19 +1052,6 @@ def start_automation():
 def get_automation_status():
     """Retorna o status atual da automação"""
     return jsonify(app_state['automation_status'])
-
-@app.route('/api/qrcode', methods=['GET'])
-def get_qrcode():
-    try:
-        # Supondo que você tenha a imagem QR Code em memória ou arquivo
-        # Exemplo de retorno:
-        with open("path/to/qrcode.png", "rb") as f:
-            qr_bytes = f.read()
-        qr_base64 = base64.b64encode(qr_bytes).decode('utf-8')
-        return jsonify({'qr_code_base64': qr_base64})
-    except Exception as e:
-        return jsonify({'error': str(e)}), 500
-
 
 @app.route('/api/automation/stop', methods=['POST'])
 def stop_automation():
