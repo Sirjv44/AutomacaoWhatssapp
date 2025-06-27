@@ -605,8 +605,8 @@ class OptimizedWhatsAppAutomation:
                 return False
             
             # PASSO 4: Clica em "Tornar admin do grupo"
-            await self.update_status(f"Tornando admin", log_message=f"👑 Clicando em 'Tornar admin do grupo'")
-            
+            await self.update_status(f"Tornando admin", log_message=f"👑 Tentando promover {nome} a administrador")
+
             admin_selectors = [
                 'text="Promover a admin do grupo"',
                 'div[role="button"]:has-text("Tornar admin do grupo")',
@@ -616,22 +616,31 @@ class OptimizedWhatsAppAutomation:
                 'div[role="button"]:has-text("Make group admin")',
                 'div:has-text("Make admin")'
             ]
-            
+
             admin_clicked = False
-            for i, selector in enumerate(admin_selectors):
+            admin_selector_encontrado = None
+
+            # Verifica se algum dos botões de "tornar admin" está presente
+            for selector in admin_selectors:
                 try:
-                    await self.page.wait_for_selector(selector, timeout=5000)
-                    await self.page.click(selector)
-                    admin_clicked = True
-                    await self.update_status(f"Admin promovido", log_message=f"✅ {nome} promovido a administrador")
+                    await self.page.wait_for_selector(selector, timeout=3000)
+                    admin_selector_encontrado = selector
                     break
                 except:
                     continue
-            
-            if not admin_clicked:
-                await self.update_status(f"Erro ao promover", log_message=f"❌ Não foi possível promover {nome}")
-            
+
+            if admin_selector_encontrado:
+                try:
+                    await self.page.click(admin_selector_encontrado)
+                    admin_clicked = True
+                    await self.update_status("Admin promovido", log_message=f"✅ {nome} promovido a administrador")
+                except Exception as e:
+                    await self.update_status("Erro ao promover", log_message=f"❌ Erro ao clicar no botão: {e}")
+            else:
+                await self.update_status("Já é admin", log_message=f"🟢 {nome} já é administrador (botão não visível)")
+
             await asyncio.sleep(delay_min)
+
             
             # PASSO 5: Volta para o chat
             await self.go_back_to_chat()
@@ -660,10 +669,7 @@ class OptimizedWhatsAppAutomation:
 
             # Seletores para voltar para o chat
             back_selectors = [
-                '[data-testid="back"]',
-                'button[aria-label="Voltar"]',
-                'div[role="button"][aria-label="Back"]',
-                'span[data-icon="back"]'
+                'div[role="button"][aria-label="Fechar"] span[data-icon="close-refreshed"]'
             ]
 
             # Pode precisar clicar duas vezes para voltar completamente
