@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 Backend Flask para WhatsApp Advanced Automation Suite
-API REST para automação de grupos e extração de contatos - CORRIGIDO EXECUÇÃO DE PROMOÇÃO
+API REST para automação de grupos e extração de contatos - CORRIGIDO UPLOAD FLEXÍVEL
 """
 
 import os
@@ -89,78 +89,136 @@ def validate_phone_number(numero):
     except:
         return None
 
-def process_csv_data(file_content):
-    """Processa dados do CSV de forma robusta"""
+def detect_separator(text):
+    """Detecta o separador usado no arquivo"""
+    separators = [',', ';', '\t', '|']
+    lines = text.strip().split('\n')
+    
+    if not lines:
+        return ','
+    
+    # Testa cada separador na primeira linha
+    first_line = lines[0]
+    best_separator = ','
+    max_columns = 0
+    
+    for sep in separators:
+        columns = len(first_line.split(sep))
+        if columns > max_columns:
+            max_columns = columns
+            best_separator = sep
+    
+    print(f"🔍 Separador detectado: '{best_separator}' ({max_columns} colunas)")
+    return best_separator
+
+def process_flexible_data(file_content):
+    """Processa dados de forma flexível - aceita qualquer formato"""
     try:
         contacts = []
         
         # Tenta diferentes encodings
         encodings = ['utf-8', 'latin-1', 'cp1252', 'iso-8859-1']
-        csv_text = None
+        text_content = None
         
         for encoding in encodings:
             try:
                 if isinstance(file_content, bytes):
-                    csv_text = file_content.decode(encoding)
+                    text_content = file_content.decode(encoding)
                 else:
-                    csv_text = file_content
+                    text_content = file_content
                 break
             except UnicodeDecodeError:
                 continue
         
-        if not csv_text:
-            raise Exception("Não foi possível decodificar o arquivo CSV")
+        if not text_content:
+            raise Exception("Não foi possível decodificar o arquivo")
         
-        # Processa CSV linha por linha
-        lines = csv_text.strip().split('\n')
-        if len(lines) < 2:
-            raise Exception("CSV deve ter pelo menos cabeçalho e uma linha de dados")
+        print(f"📄 Conteúdo do arquivo (primeiras 3 linhas):")
+        lines = text_content.strip().split('\n')
+        for i, line in enumerate(lines[:3]):
+            print(f"   Linha {i+1}: {line}")
         
-        # Verifica cabeçalho
-        header = lines[0].lower().strip()
-        if 'nome' not in header or 'numero' not in header or 'tipo' not in header:
-            raise Exception("CSV deve ter colunas: nome, numero, tipo")
+        # Detecta separador
+        separator = detect_separator(text_content)
         
-        # Processa dados
-        reader = csv.DictReader(lines)
-        for row_num, row in enumerate(reader, 2):
+        # Processa linha por linha
+        if len(lines) < 1:
+            raise Exception("Arquivo vazio")
+        
+        # Verifica se a primeira linha é cabeçalho
+        first_line = lines[0].lower()
+        has_header = any(word in first_line for word in ['nome', 'numero', 'tipo', 'name', 'number', 'type'])
+        
+        print(f"📋 Cabeçalho detectado: {'Sim' if has_header else 'Não'}")
+        
+        # Define as linhas de dados
+        data_lines = lines[1:] if has_header else lines
+        
+        print(f"📊 Processando {len(data_lines)} linhas de dados...")
+        
+        # Processa cada linha
+        for row_num, line in enumerate(data_lines, 1):
             try:
-                # Extrai dados da linha
-                nome = row.get('nome', '').strip()
-                numero = row.get('numero', '').strip()
-                tipo = row.get('tipo', '').strip().lower()
+                if not line.strip():
+                    continue
+                
+                # Divide a linha pelo separador
+                parts = line.split(separator)
+                
+                if len(parts) < 2:
+                    print(f"⚠️  Linha {row_num}: Poucos campos ({len(parts)}) - pulando")
+                    continue
+                
+                # Extrai dados baseado no número de colunas
+                if len(parts) == 2:
+                    # Formato: nome,numero
+                    nome = parts[0].strip()
+                    numero = parts[1].strip()
+                    tipo = 'lead'  # Padrão
+                elif len(parts) >= 3:
+                    # Formato: nome,numero,tipo
+                    nome = parts[0].strip()
+                    numero = parts[1].strip()
+                    tipo = parts[2].strip().lower()
+                else:
+                    continue
                 
                 # Valida número
                 numero_validado = validate_phone_number(numero)
                 if not numero_validado:
-                    print(f"⚠️  Linha {row_num}: Número inválido '{numero}'")
+                    print(f"⚠️  Linha {row_num}: Número inválido '{numero}' - pulando")
                     continue
                 
                 # Valida tipo
                 if tipo not in ['lead', 'administrador']:
-                    print(f"⚠️  Linha {row_num}: Tipo inválido '{tipo}' (deve ser 'lead' ou 'administrador')")
-                    continue
+                    tipo = 'lead'  # Padrão se tipo inválido
                 
-                # Adiciona contato válido
+                # Cria contato
                 contact = {
                     'nome': nome if nome else f"Contato {len(contacts) + 1}",
                     'numero': numero_validado,
                     'tipo': tipo
                 }
                 contacts.append(contact)
-                print(f"✅ Contato válido: {contact['nome']} ({contact['numero']}) - {contact['tipo']}")
+                
+                print(f"✅ Linha {row_num}: {contact['nome']} ({contact['numero']}) - {contact['tipo']}")
                 
             except Exception as e:
                 print(f"❌ Erro na linha {row_num}: {e}")
                 continue
         
         if not contacts:
-            raise Exception("Nenhum contato válido encontrado no CSV")
+            raise Exception("Nenhum contato válido encontrado no arquivo")
+        
+        print(f"📊 PROCESSAMENTO CONCLUÍDO:")
+        print(f"   ✅ {len(contacts)} contatos válidos")
+        print(f"   👥 {len([c for c in contacts if c['tipo'] == 'lead'])} leads")
+        print(f"   👑 {len([c for c in contacts if c['tipo'] == 'administrador'])} administradores")
         
         return contacts
         
     except Exception as e:
-        print(f"❌ Erro ao processar CSV: {e}")
+        print(f"❌ Erro ao processar arquivo: {e}")
         raise
 
 # Classe de automação com execução garantida de promoção
@@ -854,7 +912,7 @@ def health_check():
 @app.route('/api/upload-csv', methods=['POST'])
 def upload_csv():
     try:
-        print("📁 Iniciando processamento de upload CSV...")
+        print("📁 Iniciando processamento de upload FLEXÍVEL...")
         
         # Validações básicas
         if 'file' not in request.files:
@@ -864,15 +922,17 @@ def upload_csv():
         if file.filename == '':
             return jsonify({'error': 'Nenhum arquivo selecionado'}), 400
         
-        if not file.filename.lower().endswith('.csv'):
-            return jsonify({'error': 'Arquivo deve ser CSV'}), 400
+        # Aceita CSV e TXT
+        if not (file.filename.lower().endswith('.csv') or file.filename.lower().endswith('.txt')):
+            return jsonify({'error': 'Arquivo deve ser CSV ou TXT'}), 400
         
         # Lê conteúdo do arquivo
         file_content = file.read()
         print(f"📄 Arquivo lido: {len(file_content)} bytes")
+        print(f"📋 Tipo de arquivo: {file.filename}")
         
-        # Processa contatos
-        contacts = process_csv_data(file_content)
+        # Processa contatos de forma flexível
+        contacts = process_flexible_data(file_content)
         
         # Calcula estatísticas
         total_contacts = len(contacts)
@@ -883,7 +943,7 @@ def upload_csv():
         # Armazena contatos no estado global
         app_state['contacts'] = contacts
         
-        print(f"📊 ARQUIVO CSV PROCESSADO: {total_contacts} contatos válidos")
+        print(f"📊 ARQUIVO PROCESSADO COM SUCESSO: {total_contacts} contatos válidos")
         print(f"  - {total_leads} leads")
         print(f"  - {total_admins} administradores")
         print(f"  - {estimated_groups} grupos estimados")
@@ -897,14 +957,14 @@ def upload_csv():
         # Retorna resultado
         return jsonify({
             'success': True,
-            'message': f'CSV processado com sucesso! {total_contacts} contatos válidos encontrados.',
+            'message': f'Arquivo processado com sucesso! {total_contacts} contatos válidos encontrados.',
             'filename': file.filename,
             'stats': {
                 'totalContacts': total_contacts,
                 'totalLeads': total_leads,
                 'totalAdmins': total_admins,
                 'estimatedGroups': estimated_groups,
-                'validationMessage': f'{total_contacts} contatos válidos processados'
+                'validationMessage': f'{total_contacts} contatos válidos processados com detecção automática de formato'
             },
             'contacts': contacts[:10]  # Primeiros 10 para preview
         })
@@ -961,7 +1021,8 @@ def start_automation():
                 '📋 FLUXO CORRETO: Menu 3 pontinhos → Dados do grupo → Promover',
                 '🎯 Usando classes CSS exatas do inspecionar fornecido',
                 '⏱️ Delays configuráveis do frontend aplicados',
-                '🔒 GARANTIA: Promoção será executada OBRIGATORIAMENTE'
+                '🔒 GARANTIA: Promoção será executada OBRIGATORIAMENTE',
+                '📄 UPLOAD FLEXÍVEL: Aceita CSV e TXT com detecção automática'
             ],
             'progress': 0,
             'processedContacts': 0,
@@ -1035,7 +1096,7 @@ def download_report():
         admins_count = len([c for c in app_state['contacts'] if c['tipo'] == 'administrador'])
         leads_count = len([c for c in app_state['contacts'] if c['tipo'] == 'lead'])
         
-        report_content = f"""Relatório de Automação WhatsApp - FLUXO CORRETO DE PROMOÇÃO
+        report_content = f"""Relatório de Automação WhatsApp - UPLOAD FLEXÍVEL + FLUXO CORRETO
 Gerado em: {datetime.now().strftime('%d/%m/%Y %H:%M:%S')}
 
 Contatos Processados: {len(app_state['contacts'])}
@@ -1045,11 +1106,19 @@ Contatos Processados: {len(app_state['contacts'])}
 Status: {'Em execução' if app_state['automation_running'] else 'Concluída'}
 
 Configuração:
+- Upload: FLEXÍVEL (aceita CSV e TXT com detecção automática)
 - Execução: Direta no backend (otimizada)
 - Fluxo de Promoção: CORRETO (Menu 3 pontinhos → Dados do grupo)
 - Seletores: Classes CSS exatas do inspecionar
 - Delays: Configuráveis do frontend aplicados
 - Scripts: Não gerados (execução direta)
+
+UPLOAD FLEXÍVEL:
+- Aceita arquivos CSV e TXT
+- Detecção automática de separador (vírgula, ponto e vírgula, tab, pipe)
+- Cabeçalho opcional (funciona com ou sem)
+- Tipo padrão "lead" se não informado
+- Validação inteligente de números
 
 FLUXO CORRETO DE PROMOÇÃO:
 1. Clica no menu "Mais opções" (3 pontinhos) do grupo
@@ -1058,7 +1127,7 @@ FLUXO CORRETO DE PROMOÇÃO:
 4. Clica em "Tornar admin do grupo"
 5. Volta para o chat
 
-Administradores que serão/foram promovidos:
+Contatos processados:
 """
         
         for contact in app_state['contacts']:
@@ -1072,7 +1141,7 @@ Administradores que serão/foram promovidos:
         temp_file.write(report_content)
         temp_file.close()
         
-        return send_file(temp_file.name, as_attachment=True, download_name=f'relatorio_whatsapp_fluxo_correto_{timestamp}.txt')
+        return send_file(temp_file.name, as_attachment=True, download_name=f'relatorio_whatsapp_flexivel_{timestamp}.txt')
         
     except Exception as e:
         return jsonify({'error': f'Erro ao gerar relatório: {str(e)}'}), 500
@@ -1095,7 +1164,7 @@ def generate_python_code():
         # Gera código Python simples (sem salvar arquivo)
         script_content = f'''#!/usr/bin/env python3
 """
-Script de Automação WhatsApp - FLUXO CORRETO DE PROMOÇÃO
+Script de Automação WhatsApp - UPLOAD FLEXÍVEL + FLUXO CORRETO
 Gerado em: {datetime.now().strftime('%d/%m/%Y %H:%M:%S')}
 
 NOTA: Este código é apenas para referência.
@@ -1113,6 +1182,13 @@ print("A automação real é executada diretamente no backend.")
 print(f"Total de contatos: {{len(contacts)}}")
 print(f"Administradores que serão promovidos: {admins_count}")
 print("Para executar a automação, use a interface web.")
+
+# UPLOAD FLEXÍVEL:
+print("\\nUPLOAD FLEXÍVEL:")
+print("- Aceita arquivos CSV e TXT")
+print("- Detecção automática de separador")
+print("- Cabeçalho opcional")
+print("- Tipo padrão 'lead' se não informado")
 
 # FLUXO CORRETO DE PROMOÇÃO:
 print("\\nFLUXO CORRETO DE PROMOÇÃO:")
@@ -1135,14 +1211,14 @@ print(f"\\nSeletor do menu 'Mais opções': {{menu_button_selector}}")
         return jsonify({
             'success': True,
             'code': script_content,
-            'filename': f'whatsapp_automation_fluxo_correto_{datetime.now().strftime("%Y%m%d_%H%M%S")}.py'
+            'filename': f'whatsapp_automation_flexivel_{datetime.now().strftime("%Y%m%d_%H%M%S")}.py'
         })
             
     except Exception as e:
         return jsonify({'error': f'Erro ao gerar código: {str(e)}'}), 500
 
 if __name__ == '__main__':
-    print("🚀 Iniciando WhatsApp Automation API - FLUXO CORRETO DE PROMOÇÃO")
+    print("🚀 Iniciando WhatsApp Automation API - UPLOAD FLEXÍVEL + FLUXO CORRETO")
     print("📡 Servidor rodando em: http://localhost:5000")
     print("🔗 Frontend deve conectar em: http://localhost:5173")
     print("⚡ Execução direta no backend (sem geração de scripts)")
@@ -1150,6 +1226,8 @@ if __name__ == '__main__':
     print("👑 FLUXO CORRETO: Menu 3 pontinhos → Dados do grupo → Promover")
     print("🎯 Seletores CSS exatos baseados no inspecionar")
     print("⏱️ Delays configuráveis do frontend respeitados")
+    print("📄 UPLOAD FLEXÍVEL: Aceita CSV e TXT com detecção automática")
+    print("🔍 DETECÇÃO INTELIGENTE: Separador, cabeçalho e formato automáticos")
     print("="*60)
     
     app.run(debug=True, host='0.0.0.0', port=5000)

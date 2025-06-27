@@ -3,12 +3,11 @@ import { Upload, FileText, AlertCircle, CheckCircle, AlertTriangle, Users, Crown
 import { apiService, UploadResponse } from '../services/api';
 import Papa from 'papaparse';
 
-
 interface IntegratedFileUploadProps {
-  onFileUpload: (stats: UploadResponse['stats']) => void;
+  onFileUpload: (stats: UploadResponse['stats'], contacts: any[]) => void;
   onError: (error: string) => void;
   lgpdConsent: boolean;
-  manualAdmins: Contact[]; // novo
+  manualAdmins: Contact[]; 
 }
 
 export interface Contact {
@@ -21,84 +20,224 @@ export const IntegratedFileUpload: React.FC<IntegratedFileUploadProps> = ({
   onFileUpload,
   onError,
   lgpdConsent,
-  manualAdmins // ← aqui
+  manualAdmins
 }) => {
-
   const [isDragOver, setIsDragOver] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
   const [uploadResult, setUploadResult] = useState<UploadResponse | null>(null);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
 
+  const isValidFileType = (filename: string) => {
+    const lowerName = filename.toLowerCase();
+    return lowerName.endsWith('.csv') || lowerName.endsWith('.txt');
+  };
+
   const processFile = useCallback(async (file: File) => {
-  console.log('📁 Processando arquivo:', file.name);
+    console.log('📁 Processando arquivo:', file.name);
 
-  if (!lgpdConsent) {
-    onError('É necessário aceitar os termos LGPD antes de fazer upload de contatos');
-    return;
-  }
-
-  if (!file.name.toLowerCase().endsWith('.csv')) {
-    onError('Por favor, selecione um arquivo CSV válido');
-    setSelectedFile(null);
-    return;
-  }
-
-  setSelectedFile(file);
-  setIsUploading(true);
-  setUploadResult(null);
-
-  try {
-    console.log('🔄 Lendo CSV local...');
-    const csvText = await file.text();
-
-    // Parse o CSV original
-    const parsed = Papa.parse<Contact>(csvText, {
-      header: true,
-      skipEmptyLines: true,
-    });
-
-    if (parsed.errors.length > 0) {
-      throw new Error('Erro ao ler o arquivo CSV');
+    if (!lgpdConsent) {
+      onError('É necessário aceitar os termos LGPD antes de fazer upload de contatos');
+      return;
     }
 
-    const originalContacts = parsed.data.filter((c) => c.numero); // ignora contatos vazios
+    if (!isValidFileType(file.name)) {
+      onError('Por favor, selecione um arquivo CSV ou TXT válido');
+      setSelectedFile(null);
+      return;
+    }
 
-    console.log(`📊 CSV original tem ${originalContacts.length} contatos`);
-    console.log('➕ Adicionando administradores manuais:', manualAdmins);
-
-    // Junta os contatos do CSV com os admins da tela
-    const allContacts: Contact[] = [...originalContacts, ...manualAdmins];
-
-    // Converte de volta para CSV
-    const mergedCSV = Papa.unparse(allContacts, {
-      columns: ['nome', 'numero', 'tipo'],
-    });
-
-    // Cria um novo arquivo para enviar
-    const mergedFile = new File([mergedCSV], `merged_${file.name}`, {
-      type: 'text/csv',
-    });
-
-    console.log('📤 Enviando arquivo modificado para o backend...');
-    const result = await apiService.uploadCSV(mergedFile);
-    console.log('✅ Resultado do backend:', result);
-
-    setUploadResult(result);
-    onFileUpload(result.stats);
-    onError('');
-
-  } catch (error) {
-    console.error('❌ Erro no upload:', error);
-    const errorMessage = error instanceof Error ? error.message : 'Erro ao processar arquivo';
-    onError(errorMessage);
-    setSelectedFile(null);
+    setSelectedFile(file);
+    setIsUploading(true);
     setUploadResult(null);
-  } finally {
-    setIsUploading(false);
-  }
-}, [onFileUpload, onError, lgpdConsent, manualAdmins]);
 
+    try {
+      console.log('🔄 Lendo arquivo local...');
+      const fileText = await file.text();
 
+      // Detecta o formato do arquivo
+      let csvText = fileText;
+      
+      // Se for TXT, tenta converter para CSV
+      if (file.name.toLowerCase().endsWith('.txt')) {
+        console.log('📄 Arquivo TXT detectado, convertendo para CSV...');
+        
+        // Detecta o separador (vírgula, ponto e vírgula, tab, pipe)
+        const separators = [',', ';', '\t', '|'];
+        let bestSeparator = ',';
+        let maxColumns = 0;
+        
+        for (const sep of separators) {
+          const lines = fileText.trim().split('\n');
+          if (lines.length > 0) {
+            const columns = lines[0].split(sep).length;
+            if (columns > maxColumns) {
+              maxColumns = columns;
+              bestSeparator = sep;
+            }
+          }
+        }
+        
+        console.log(`🔍 Separador detectado: "${bestSeparator}" (${maxColumns} colunas)`);
+        
+        // Converte TXT para CSV usando o separador detectado
+        const lines = fileText.trim().split('\n');
+        
+        // Se não há cabeçalho, adiciona um baseado no número de colunas
+        let csvLines = [];
+        const firstLine = lines[0];
+        const firstLineParts = firstLine.split(bestSeparator);
+        
+        // Detecta se a primeira linha é cabeçalho ou dados
+        const hasHeader = firstLineParts.some(part => 
+          part.toLowerCase().includes('nome') || 
+          part.toLowerCase().includes('numero') || 
+          part.toLowerCase().includes('tipo')
+        );
+        
+        if (!hasHeader) {
+          // Adiciona cabeçalho baseado no número de colunas
+          if (firstLineParts.length === 2) {
+            csvLines.push('nome,numero');
+          } else if (firstLineParts.length === 3) {
+            csvLines.push('nome,numero,tipo');
+          } else {
+            csvLines.push('nome,numero');
+          }
+        }
+        
+        // Processa as linhas de dados
+        const dataLines = hasHeader ? lines.slice(1) : lines;
+        
+        for (const line of dataLines) {
+          const parts = line.split(bestSeparator);
+          
+          if (parts.length >= 2) {
+            // Limpa os dados
+            const nome = parts[0] ? parts[0].trim() : '';
+            const numero = parts[1] ? parts[1].trim() : '';
+            const tipo = parts[2] ? parts[2].trim().toLowerCase() : 'lead';
+            
+            // Valida se tem número
+            if (numero) {
+              // Garante que cada parte esteja entre aspas se contiver vírgulas
+              const csvParts = [
+                nome.includes(',') ? `"${nome}"` : nome,
+                numero.includes(',') ? `"${numero}"` : numero,
+                tipo.includes(',') ? `"${tipo}"` : tipo
+              ];
+              csvLines.push(csvParts.join(','));
+            }
+          }
+        }
+        
+        csvText = csvLines.join('\n');
+        console.log('✅ Conversão TXT → CSV concluída');
+        console.log('📋 CSV gerado:', csvText.split('\n').slice(0, 3).join('\n') + '...');
+      }
+
+      // Parse o CSV
+      const parsed = Papa.parse<any>(csvText, {
+        header: true,
+        skipEmptyLines: true,
+        transformHeader: (header) => header.toLowerCase().trim()
+      });
+
+      if (parsed.errors.length > 0) {
+        console.warn('⚠️ Avisos no parse do CSV:', parsed.errors);
+      }
+
+      console.log('📊 Dados parseados:', parsed.data.slice(0, 3));
+
+      // Processa os dados e adiciona tipo padrão se não existir
+      const processedContacts: Contact[] = parsed.data
+        .filter((row) => {
+          // Verifica se tem número em qualquer uma das possíveis colunas
+          return row.numero || row.number || Object.values(row).some(val => 
+            typeof val === 'string' && val.match(/^\d{10,15}$/)
+          );
+        })
+        .map((row) => {
+          // Tenta encontrar o número em diferentes colunas
+          let numero = row.numero || row.number;
+          
+          // Se não encontrou, procura por um valor que pareça um número
+          if (!numero) {
+            const values = Object.values(row);
+            numero = values.find(val => 
+              typeof val === 'string' && val.match(/^\d{10,15}$/)
+            ) as string;
+          }
+          
+          // Tenta encontrar o nome
+          let nome = row.nome || row.name || '';
+          
+          // Se não encontrou nome, pega o primeiro valor que não é número
+          if (!nome) {
+            const values = Object.values(row);
+            nome = values.find(val => 
+              typeof val === 'string' && !val.match(/^\d{10,15}$/)
+            ) as string || '';
+          }
+          
+          return {
+            nome: nome.trim(),
+            numero: numero.trim(),
+            tipo: (row.tipo ? row.tipo.toLowerCase() : 'lead') as 'lead' | 'administrador'
+          };
+        })
+        .filter((contact) => {
+          // Valida se o tipo é válido e se tem número
+          return contact.numero && (contact.tipo === 'lead' || contact.tipo === 'administrador');
+        });
+
+      console.log(`📊 Arquivo processado: ${processedContacts.length} contatos válidos`);
+      console.log('👥 Primeiros contatos:', processedContacts.slice(0, 3));
+      console.log('➕ Adicionando administradores manuais:', manualAdmins);
+
+      // Junta os contatos do arquivo com os admins da tela
+      const allContacts: Contact[] = [...processedContacts, ...manualAdmins];
+
+      // ORDENA: Administradores primeiro, depois leads
+      allContacts.sort((a, b) => {
+        if (a.tipo === b.tipo) return 0;
+        if (a.tipo === 'administrador') return -1; // Administradores primeiro
+        return 1; // Leads depois
+      });
+
+      console.log('📋 Contatos ordenados:');
+      console.log('👑 Administradores:', allContacts.filter(c => c.tipo === 'administrador').length);
+      console.log('👤 Leads:', allContacts.filter(c => c.tipo === 'lead').length);
+
+      // Converte de volta para CSV
+      const mergedCSV = Papa.unparse(allContacts, {
+        columns: ['nome', 'numero', 'tipo'],
+      });
+
+      // Cria um novo arquivo para enviar
+      const mergedFile = new File([mergedCSV], `merged_${file.name}`, {
+        type: 'text/csv',
+      });
+
+      console.log('📤 Enviando arquivo modificado para o backend...');
+      const result = await apiService.uploadCSV(mergedFile);
+      console.log('✅ Resultado do backend:', result);
+
+      setUploadResult(result);
+      
+      // Passa os contatos reais do backend
+      onFileUpload(result.stats, result.contacts || processedContacts);
+      onError('');
+
+    } catch (error) {
+      console.error('❌ Erro no upload:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Erro ao processar arquivo';
+      onError(errorMessage);
+      setSelectedFile(null);
+      setUploadResult(null);
+    } finally {
+      setIsUploading(false);
+    }
+  }, [onFileUpload, onError, lgpdConsent, manualAdmins]);
 
   const handleDrop = useCallback((e: React.DragEvent) => {
     e.preventDefault();
@@ -201,7 +340,7 @@ export const IntegratedFileUpload: React.FC<IntegratedFileUploadProps> = ({
               <div>
                 <p className="font-medium text-blue-900">{selectedFile.name}</p>
                 <p className="text-sm text-blue-700">
-                  {(selectedFile.size / 1024).toFixed(1)} KB
+                  {(selectedFile.size / 1024).toFixed(1)} KB • {selectedFile.name.toLowerCase().endsWith('.txt') ? 'TXT' : 'CSV'}
                 </p>
               </div>
             </div>
@@ -216,7 +355,9 @@ export const IntegratedFileUpload: React.FC<IntegratedFileUploadProps> = ({
           {isUploading && (
             <div className="mt-3 flex items-center space-x-2">
               <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
-              <span className="text-sm text-blue-700">Processando arquivo...</span>
+              <span className="text-sm text-blue-700">
+                {selectedFile.name.toLowerCase().endsWith('.txt') ? 'Convertendo TXT para CSV e processando...' : 'Processando arquivo CSV...'}
+              </span>
             </div>
           )}
         </div>
@@ -238,8 +379,12 @@ export const IntegratedFileUpload: React.FC<IntegratedFileUploadProps> = ({
         {isUploading ? (
           <div className="flex flex-col items-center space-y-3">
             <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
-            <p className="text-sm text-gray-600 font-medium">Enviando e validando arquivo...</p>
-            <p className="text-xs text-gray-500">Processando contatos com validação LGPD...</p>
+            <p className="text-sm text-gray-600 font-medium">
+              {selectedFile?.name.toLowerCase().endsWith('.txt') 
+                ? 'Convertendo TXT e validando contatos...' 
+                : 'Enviando e validando arquivo CSV...'}
+            </p>
+            <p className="text-xs text-gray-500">Processando e ordenando contatos...</p>
           </div>
         ) : (
           <>
@@ -247,18 +392,18 @@ export const IntegratedFileUpload: React.FC<IntegratedFileUploadProps> = ({
               <Upload className={`mx-auto h-16 w-16 ${lgpdConsent ? 'text-gray-400' : 'text-gray-300'}`} />
             </div>
             <h3 className={`text-xl font-semibold mb-2 ${lgpdConsent ? 'text-gray-900' : 'text-gray-500'}`}>
-              {uploadResult ? '✅ Arquivo processado com sucesso!' : selectedFile ? '📁 Arquivo selecionado' : 'Arraste o arquivo CSV aqui'}
+              {uploadResult ? '✅ Arquivo processado com sucesso!' : selectedFile ? '📁 Arquivo selecionado' : 'Arraste o arquivo CSV ou TXT aqui'}
             </h3>
             <p className={`mb-2 ${lgpdConsent ? 'text-gray-500' : 'text-gray-400'}`}>
               {uploadResult ? 'Clique para carregar outro arquivo' : selectedFile ? 'Clique para selecionar outro arquivo' : 'ou clique para selecionar do seu computador'}
             </p>
             <p className={`text-sm font-medium mb-6 ${lgpdConsent ? 'text-blue-600' : 'text-gray-400'}`}>
-              ⚡ Processamento integrado com backend Python
+              ⚡ Suporte para CSV e TXT • Detecção automática de formato • Ordenação automática
             </p>
             <input
               id="csv-file-input"
               type="file"
-              accept=".csv"
+              accept=".csv,.txt"
               onChange={handleFileInput}
               disabled={!lgpdConsent || isUploading}
               className="hidden"
@@ -277,7 +422,7 @@ export const IntegratedFileUpload: React.FC<IntegratedFileUploadProps> = ({
                 }
               }}
             >
-              {uploadResult ? '📁 Carregar Outro Arquivo' : selectedFile ? '📁 Selecionar Outro Arquivo' : '📁 Selecionar Arquivo CSV'}
+              {uploadResult ? '📁 Carregar Outro Arquivo' : selectedFile ? '📁 Selecionar Outro Arquivo' : '📁 Selecionar Arquivo CSV/TXT'}
             </button>
           </>
         )}
@@ -324,7 +469,7 @@ export const IntegratedFileUpload: React.FC<IntegratedFileUploadProps> = ({
             </div>
           </div>
 
-          <div className="bg-green-50 rounded-lg p-4 border border-green-200">
+          <div className="bg-green-50 rounded-lg p-4 border border-green-200 mb-4">
             <div className="flex items-center space-x-2 mb-2">
               <CheckCircle className="h-4 w-4 text-green-600" />
               <h4 className="font-medium text-green-900">Arquivo processado com sucesso!</h4>
@@ -335,9 +480,24 @@ export const IntegratedFileUpload: React.FC<IntegratedFileUploadProps> = ({
             </p>
           </div>
 
-          {uploadResult.contacts.length > 0 && (
+          <div className="bg-blue-50 rounded-lg p-4 border border-blue-200">
+            <div className="flex items-center space-x-2 mb-2">
+              <Crown className="h-4 w-4 text-blue-600" />
+              <h4 className="font-medium text-blue-900">Ordenação Aplicada</h4>
+            </div>
+            <p className="text-sm text-blue-800">
+              Contatos ordenados automaticamente: <strong>Administradores primeiro</strong>, depois leads.
+              {uploadResult.stats.totalAdmins > 0 && (
+                <span className="block mt-1">
+                  👑 {uploadResult.stats.totalAdmins} administradores serão promovidos em todos os grupos.
+                </span>
+              )}
+            </p>
+          </div>
+
+          {uploadResult.contacts && uploadResult.contacts.length > 0 && (
             <div className="mt-4">
-              <h4 className="font-medium text-gray-900 mb-3">Preview dos Contatos (primeiros 10)</h4>
+              <h4 className="font-medium text-gray-900 mb-3">Preview dos Contatos (primeiros 10 - ordenados)</h4>
               <div className="max-h-48 overflow-y-auto">
                 <table className="w-full text-sm">
                   <thead className="bg-gray-50">
@@ -348,7 +508,7 @@ export const IntegratedFileUpload: React.FC<IntegratedFileUploadProps> = ({
                     </tr>
                   </thead>
                   <tbody>
-                    {uploadResult.contacts.map((contact, index) => (
+                    {uploadResult.contacts.slice(0, 10).map((contact, index) => (
                       <tr key={index} className="border-b">
                         <td className="p-2">{contact.nome || '(sem nome)'}</td>
                         <td className="p-2 font-mono">{contact.numero}</td>
@@ -372,45 +532,74 @@ export const IntegratedFileUpload: React.FC<IntegratedFileUploadProps> = ({
       <div className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-xl p-6 border border-blue-100">
         <h3 className="font-semibold text-blue-900 mb-3 flex items-center space-x-2">
           <FileText className="h-5 w-5" />
-          <span>Formato do Arquivo CSV - Integração Backend</span>
+          <span>Formatos Suportados - Máxima Flexibilidade</span>
         </h3>
         <div className="space-y-4">
           <p className="text-sm text-blue-800">
-            O arquivo será processado automaticamente pelo backend Python com validação completa:
+            O sistema aceita qualquer formato de arquivo TXT ou CSV. Detecção automática de estrutura!
           </p>
-          <div className="bg-white rounded-lg p-4 border border-blue-200">
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
-              <div>
-                <span className="font-medium text-gray-900">nome</span>
-                <p className="text-gray-600">(opcional)</p>
+          
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="bg-white rounded-lg p-4 border border-blue-200">
+              <h4 className="font-medium text-blue-900 mb-2">📄 Seu Formato (Suportado!)</h4>
+              <div className="text-xs text-gray-600 space-y-1">
+                <p><strong>Exemplo do seu arquivo:</strong></p>
+                <div className="bg-gray-100 p-2 rounded font-mono text-xs">
+                  Allan Kardec,118949488419008<br/>
+                  Allan Kardec,556295530160<br/>
+                  Allan Maciel,111531794690141<br/>
+                  Allan Maciel,556296653224<br/>
+                  Allana Christina,556293075183
+                </div>
+                <p className="text-green-600 text-xs mt-1">
+                  ✅ Detecta automaticamente: nome,numero<br/>
+                  ✅ Todos viram "lead" por padrão<br/>
+                  ✅ Ordenação automática aplicada
+                </p>
               </div>
-              <div>
-                <span className="font-medium text-gray-900">numero</span>
-                <p className="text-red-600">(obrigatório com DDI)</p>
-              </div>
-              <div>
-                <span className="font-medium text-gray-900">tipo</span>
-                <p className="text-red-600">(lead ou administrador)</p>
+            </div>
+            
+            <div className="bg-white rounded-lg p-4 border border-blue-200">
+              <h4 className="font-medium text-blue-900 mb-2">📝 Outros Formatos</h4>
+              <div className="text-xs text-gray-600 space-y-1">
+                <p><strong>Com separadores diferentes:</strong></p>
+                <div className="bg-gray-100 p-2 rounded font-mono text-xs">
+                  Nome;Numero;Tipo<br/>
+                  João Silva;5562999999999;lead<br/>
+                  Maria Admin;5562888888888;administrador
+                </div>
+                <div className="bg-gray-100 p-2 rounded font-mono text-xs mt-1">
+                  Nome|Numero<br/>
+                  João Silva|5562999999999<br/>
+                  Maria Santos|5562888888888
+                </div>
+                <p className="text-green-600 text-xs mt-1">
+                  ✅ Detecta: vírgula, ponto e vírgula, pipe, tab
+                </p>
               </div>
             </div>
           </div>
-          <div className="bg-gray-900 rounded-lg p-4">
-            <p className="text-xs text-gray-400 mb-2">Exemplo com validação automática:</p>
-            <pre className="text-green-400 text-xs font-mono">
-{`nome,numero,tipo
-João Silva,5562999999999,lead
-,5562888888888,administrador
-Maria Santos,62777777777,lead
-Pedro Admin,5562666666666,administrador
-,5562555555555,lead
-Ana Costa,62444444444,lead`}
-            </pre>
+          
+          <div className="bg-yellow-50 rounded-lg p-4 border border-yellow-200">
+            <h4 className="font-medium text-yellow-800 mb-2">🤖 Processamento Inteligente</h4>
+            <div className="text-xs text-yellow-700 space-y-1">
+              <p>• <strong>Detecção automática:</strong> Identifica separador e estrutura</p>
+              <p>• <strong>Cabeçalho opcional:</strong> Funciona com ou sem linha de cabeçalho</p>
+              <p>• <strong>Tipo padrão:</strong> Se não informado, assume "lead"</p>
+              <p>• <strong>Ordenação automática:</strong> Administradores primeiro, depois leads</p>
+              <p>• <strong>Validação inteligente:</strong> Identifica números automaticamente</p>
+              <p>• <strong>Limpeza automática:</strong> Remove espaços e caracteres inválidos</p>
+            </div>
           </div>
-          <div className="text-xs text-blue-700 space-y-1">
-            <p>• <strong>Validação automática:</strong> DDI, formato de número e tipos</p>
-            <p>• <strong>Processamento backend:</strong> Dados salvos e validados no servidor Python</p>
-            <p>• <strong>Integração completa:</strong> Frontend React + Backend Flask</p>
-            <p>• <strong>Estatísticas em tempo real:</strong> Contagem automática de leads e admins</p>
+          
+          <div className="bg-green-50 rounded-lg p-4 border border-green-200">
+            <h4 className="font-medium text-green-800 mb-2">✅ Seu Arquivo Será Processado Como:</h4>
+            <div className="text-xs text-green-700 space-y-1">
+              <p>• <strong>Allan Kardec,118949488419008</strong> → Nome: "Allan Kardec", Número: "118949488419008", Tipo: "lead"</p>
+              <p>• <strong>Allan Kardec,556295530160</strong> → Nome: "Allan Kardec", Número: "556295530160", Tipo: "lead"</p>
+              <p>• <strong>Allana Christina,556293075183</strong> → Nome: "Allana Christina", Número: "556293075183", Tipo: "lead"</p>
+              <p className="text-green-600 font-medium mt-2">🎯 Todos os contatos serão aceitos e processados corretamente!</p>
+            </div>
           </div>
         </div>
       </div>
