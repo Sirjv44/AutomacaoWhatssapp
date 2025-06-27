@@ -1,13 +1,15 @@
 FROM mcr.microsoft.com/playwright/python:v1.48.0-focal
 
 WORKDIR /app
-
 COPY . .
 
-# Instala as dependências corretas
 RUN pip install --upgrade pip && pip install -r backend/requirements.txt
+
+# Instala Xvfb e outros pacotes necessários
+RUN apt-get update && apt-get install -y xvfb \
+    && rm -rf /var/lib/apt/lists/*
 
 EXPOSE 10000
 
-# Garante que o app seja encontrado dentro da pasta backend
-CMD ["gunicorn", "backend.app:app", "--bind", "0.0.0.0:10000"]
+# Comando para rodar Xvfb e depois sua app
+CMD xvfb-run --server-args="-screen 0 1366x768x24" gunicorn backend.app:app --bind 0.0.0.0:10000
