@@ -243,13 +243,14 @@ class OptimizedWhatsAppAutomation:
             print(f"📝 {log_message}")
     
     async def start_browser(self):
-        """Inicia navegador otimizado"""
+        """Inicia navegador otimizado com persistência de sessão"""
         try:
-            await self.update_status("Iniciando navegador otimizado...", log_message="Abrindo Chrome com configurações otimizadas")
-            
+            await self.update_status("Iniciando navegador...", log_message="Abrindo navegador Playwright")
+
             from playwright.async_api import async_playwright
-            
+
             self.playwright = await async_playwright().start()
+
             self.browser = await self.playwright.chromium.launch(
                 headless=True,
                 args=[
@@ -264,52 +265,43 @@ class OptimizedWhatsAppAutomation:
                     '--disable-blink-features=AutomationControlled'
                 ]
             )
-            
+
+            # Verifica se já existe sessão salva
+            storage_path = "whatsapp_state.json"
             context = await self.browser.new_context(
                 viewport={'width': 1366, 'height': 768},
                 user_agent='Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-                extra_http_headers={
-                    'Accept-Language': 'pt-BR,pt;q=0.9,en;q=0.8'
-                }
+                extra_http_headers={'Accept-Language': 'pt-BR,pt;q=0.9,en;q=0.8'},
+                storage_state=storage_path if os.path.exists(storage_path) else None
             )
-            
-            # Remove indicadores de automação
+
+            # Remove rastros de automação
             await context.add_init_script("""
-                Object.defineProperty(navigator, 'webdriver', {
-                    get: () => undefined,
-                });
-                
-                window.chrome = {
-                    runtime: {}
-                };
-                
-                Object.defineProperty(navigator, 'plugins', {
-                    get: () => [1, 2, 3, 4, 5],
-                });
-                
-                Object.defineProperty(navigator, 'languages', {
-                    get: () => ['pt-BR', 'pt', 'en'],
-                });
+                Object.defineProperty(navigator, 'webdriver', { get: () => undefined });
+                window.chrome = { runtime: {} };
+                Object.defineProperty(navigator, 'plugins', { get: () => [1, 2, 3] });
+                Object.defineProperty(navigator, 'languages', { get: () => ['pt-BR', 'pt', 'en'] });
             """)
-            
+
             self.page = await context.new_page()
-            
-            await self.update_status("Conectando ao WhatsApp Web...", log_message="Acessando WhatsApp Web")
+
+            await self.update_status("Abrindo WhatsApp Web...", log_message="Acessando https://web.whatsapp.com")
             await self.page.goto('https://web.whatsapp.com', wait_until='networkidle')
-            
-            await self.update_status("Aguardando login...", log_message="Escaneie o QR Code com seu celular")
-            
-            # Aguarda login com timeout otimizado
+
+            # Verifica se já está logado
             try:
-                await self.page.wait_for_selector('div[role="grid"]', timeout=300000)  # 5 minutos
-                await self.update_status("Login realizado!", log_message="Login no WhatsApp Web realizado com sucesso")
+                await self.page.wait_for_selector('div[role="grid"]', timeout=15000)
+                await self.update_status("Login detectado!", log_message="Sessão existente detectada")
             except:
-                await self.page.wait_for_selector('div[role="grid"]', timeout=180000)
-                await self.update_status("Login realizado!", log_message="Login no WhatsApp Web realizado com sucesso")
-            
-            await asyncio.sleep(3)
+                await self.update_status("Aguardando login via QR Code...", log_message="Escaneie o QR Code com seu celular")
+                await self.page.wait_for_selector('div[role="grid"]', timeout=300000)
+                await self.update_status("Login realizado!", log_message="Login via QR Code efetuado")
+
+                # Salva sessão
+                await context.storage_state(path=storage_path)
+
             return True
-            
+
         except Exception as e:
             await self.update_status("Erro no navegador", log_message=f"Erro ao iniciar navegador: {e}")
             return False
