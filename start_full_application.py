@@ -22,6 +22,18 @@ def install_backend_dependencies():
         
         if result.returncode == 0:
             print("✅ Dependências do backend instaladas com sucesso")
+            
+            # Agora instalar navegadores do Playwright
+            print("🚀 Instalando navegadores do Playwright...")
+            result_playwright = subprocess.run([
+                sys.executable, "-m", "playwright", "install"
+            ], cwd="backend", capture_output=True, text=True)
+            
+            if result_playwright.returncode == 0:
+                print("✅ Navegadores do Playwright instalados com sucesso")
+            else:
+                print(f"⚠️ Aviso na instalação dos navegadores Playwright: {result_playwright.stderr}")
+        
         else:
             print(f"⚠️  Aviso na instalação das dependências: {result.stderr}")
     except Exception as e:
