@@ -208,8 +208,6 @@ function App() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-purple-50 via-white to-blue-50">
-      <h1>Faça login no WhatsApp</h1>
-      <QRCodeViewer />
       <LGPDConsent 
         isVisible={showLgpdModal} 
         onConsent={handleLgpdConsent} 
