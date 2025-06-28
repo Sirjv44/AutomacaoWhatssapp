@@ -10,7 +10,6 @@ import { ContactExtractor } from './components/ContactExtractor';
 import { ApiStatus } from './components/ApiStatus';
 import { useApiHealth } from './hooks/useApi';
 import { AdminConfigurator } from './components/AdminConfigurator';
-import { QRCodeViewer } from './QRCodeViewer';
 
 function App() {
   const [contacts, setContacts] = useState<Contact[]>([]);
