@@ -25,7 +25,8 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 app = Flask(__name__)
-CORS(app)
+CORS(app, resources={r"/*": {"origins": "https://automacao-whatssapp.vercel.app/"}})
+
 
 # Estado global da aplicação
 app_state = {
