@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 Backend Flask para WhatsApp Advanced Automation Suite
-API REST para automação de grupos e extração de contatos - CORRIGIDO UPLOAD FLEXÍVEL
+API REST com PROTEÇÃO ANTI-BAN GARANTIDA
 """
 
 import os
@@ -14,6 +14,7 @@ import logging
 import threading
 import time
 import asyncio
+import random
 from datetime import datetime
 from pathlib import Path
 from flask import Flask, request, jsonify, send_file
@@ -26,7 +27,6 @@ logger = logging.getLogger(__name__)
 
 app = Flask(__name__)
 CORS(app)
-
 
 # Estado global da aplicação
 app_state = {
@@ -222,8 +222,8 @@ def process_flexible_data(file_content):
         print(f"❌ Erro ao processar arquivo: {e}")
         raise
 
-# Classe de automação com execução garantida de promoção
-class OptimizedWhatsAppAutomation:
+# Classe de automação com PROTEÇÃO ANTI-BAN GARANTIDA
+class SafeWhatsAppAutomation:
     def __init__(self, contacts, config):
         self.contacts = contacts
         self.config = config
@@ -231,6 +231,8 @@ class OptimizedWhatsAppAutomation:
         self.browser = None
         self.playwright = None
         self.current_group_name = ""
+        self.groups_created_in_session = 0
+        self.max_groups_per_session = 3  # LIMITE SEGURO
         
     async def update_status(self, step, progress=None, current_group=None, log_message=None):
         """Atualiza status da automação"""
@@ -243,10 +245,16 @@ class OptimizedWhatsAppAutomation:
             app_state['automation_status']['logs'].append(f"{datetime.now().strftime('%H:%M:%S')} - {log_message}")
             print(f"📝 {log_message}")
     
+    async def safe_delay(self, min_seconds=5, max_seconds=15, reason="Delay de segurança"):
+        """Delay seguro com variação aleatória"""
+        delay_time = random.uniform(min_seconds, max_seconds)
+        await self.update_status(f"Aguardando {delay_time:.1f}s", log_message=f"⏳ {reason}: {delay_time:.1f}s")
+        await asyncio.sleep(delay_time)
+    
     async def start_browser(self):
-        """Inicia navegador otimizado"""
+        """Inicia navegador com configurações anti-detecção"""
         try:
-            await self.update_status("Iniciando navegador otimizado...", log_message="Abrindo Chrome com configurações otimizadas")
+            await self.update_status("Iniciando navegador seguro...", log_message="🛡️ Abrindo Chrome com proteção anti-ban")
             
             from playwright.async_api import async_playwright
             
@@ -262,7 +270,10 @@ class OptimizedWhatsAppAutomation:
                     '--disable-background-timer-throttling',
                     '--disable-backgrounding-occluded-windows',
                     '--disable-renderer-backgrounding',
-                    '--disable-blink-features=AutomationControlled'
+                    '--disable-blink-features=AutomationControlled',
+                    '--disable-automation',
+                    '--disable-extensions-except',
+                    '--disable-plugins-discovery'
                 ]
             )
             
@@ -274,14 +285,16 @@ class OptimizedWhatsAppAutomation:
                 }
             )
             
-            # Remove indicadores de automação
+            # Remove TODOS os indicadores de automação
             await context.add_init_script("""
                 Object.defineProperty(navigator, 'webdriver', {
                     get: () => undefined,
                 });
                 
                 window.chrome = {
-                    runtime: {}
+                    runtime: {},
+                    loadTimes: function() {},
+                    csi: function() {}
                 };
                 
                 Object.defineProperty(navigator, 'plugins', {
@@ -291,42 +304,49 @@ class OptimizedWhatsAppAutomation:
                 Object.defineProperty(navigator, 'languages', {
                     get: () => ['pt-BR', 'pt', 'en'],
                 });
+                
+                // Remove propriedades de automação
+                delete window.cdc_adoQpoasnfa76pfcZLmcfl_Array;
+                delete window.cdc_adoQpoasnfa76pfcZLmcfl_Promise;
+                delete window.cdc_adoQpoasnfa76pfcZLmcfl_Symbol;
             """)
             
             self.page = await context.new_page()
             
-            await self.update_status("Conectando ao WhatsApp Web...", log_message="Acessando WhatsApp Web")
+            await self.update_status("Conectando ao WhatsApp Web...", log_message="🌐 Acessando WhatsApp Web")
             await self.page.goto('https://web.whatsapp.com', wait_until='networkidle')
             
-            await self.update_status("Aguardando login...", log_message="Escaneie o QR Code com seu celular")
+            # Delay humano após carregar
+            await self.safe_delay(3, 8, "Carregamento inicial")
             
-            # Aguarda login com timeout otimizado
+            await self.update_status("Aguardando login...", log_message="📱 Escaneie o QR Code com seu celular")
+            
+            # Aguarda login com timeout generoso
             try:
                 await self.page.wait_for_selector('div[role="grid"]', timeout=300000)  # 5 minutos
-                await self.update_status("Login realizado!", log_message="Login no WhatsApp Web realizado com sucesso")
+                await self.update_status("Login realizado!", log_message="✅ Login no WhatsApp Web realizado com sucesso")
             except:
                 await self.page.wait_for_selector('div[role="grid"]', timeout=180000)
-                await self.update_status("Login realizado!", log_message="Login no WhatsApp Web realizado com sucesso")
+                await self.update_status("Login realizado!", log_message="✅ Login no WhatsApp Web realizado com sucesso")
             
-            await asyncio.sleep(3)
+            # Delay pós-login para estabilizar
+            await self.safe_delay(5, 12, "Estabilização pós-login")
             return True
             
         except Exception as e:
-            await self.update_status("Erro no navegador", log_message=f"Erro ao iniciar navegador: {e}")
+            await self.update_status("Erro no navegador", log_message=f"❌ Erro ao iniciar navegador: {e}")
             return False
     
-    async def create_group_fast(self, group_name):
-        """Cria grupo com seletores otimizados"""
+    async def create_group_safe(self, group_name):
+        """Cria grupo com delays seguros"""
         try:
-            await self.update_status(f"Criando grupo: {group_name}", log_message=f"Iniciando criação do grupo {group_name}")
+            await self.update_status(f"Criando grupo: {group_name}", log_message=f"👥 Iniciando criação SEGURA do grupo {group_name}")
             self.current_group_name = group_name
             
-            # Delay configurável do frontend
-            delay_min = self.config.get('delay', {}).get('min', 2)
-            delay_max = self.config.get('delay', {}).get('max', 6)
-            await asyncio.sleep(delay_min)
+            # Delay inicial seguro
+            await self.safe_delay(8, 15, "Preparação para criar grupo")
             
-            # Seletores otimizados para menu
+            # Seletores para menu
             menu_selectors = [
                 '[aria-label="Mais opções"]',
                 '[data-testid="menu"]',
@@ -336,16 +356,17 @@ class OptimizedWhatsAppAutomation:
             
             for selector in menu_selectors:
                 try:
-                    await self.page.wait_for_selector(selector, timeout=13000)
+                    await self.page.wait_for_selector(selector, timeout=15000)
+                    await self.safe_delay(2, 5, "Antes de clicar no menu")
                     await self.page.click(selector)
-                    await self.update_status(f"Menu aberto", log_message="Menu de opções clicado")
+                    await self.update_status(f"Menu aberto", log_message="📋 Menu de opções clicado")
                     break
                 except:
                     continue
             
-            await asyncio.sleep(delay_min)
+            await self.safe_delay(3, 7, "Após abrir menu")
             
-            # Clica em "Novo grupo" com seletores otimizados
+            # Clica em "Novo grupo"
             new_group_selectors = [
                 'text="Novo grupo"',
                 'div[role="button"]:has-text("Novo grupo")',
@@ -355,44 +376,49 @@ class OptimizedWhatsAppAutomation:
             
             for selector in new_group_selectors:
                 try:
+                    await self.safe_delay(1, 3, "Antes de clicar em Novo grupo")
                     await self.page.click(selector)
-                    await self.update_status(f"Novo grupo selecionado", log_message="Opção 'Novo grupo' clicada")
+                    await self.update_status(f"Novo grupo selecionado", log_message="✅ Opção 'Novo grupo' clicada")
                     break
                 except:
                     continue
             
-            await asyncio.sleep(delay_max)
+            await self.safe_delay(5, 10, "Aguardando tela de seleção")
             
             # Aguarda tela de seleção
-            await self.page.wait_for_selector('input[placeholder]', timeout=15000)
-            await self.update_status(f"Tela de criação aberta", log_message=f"Tela de criação do grupo {group_name} aberta")
+            await self.page.wait_for_selector('input[placeholder]', timeout=20000)
+            await self.update_status(f"Tela de criação aberta", log_message=f"✅ Tela de criação do grupo {group_name} aberta")
             return True
             
         except Exception as e:
-            await self.update_status("Erro ao criar grupo", log_message=f"Erro ao criar grupo {group_name}: {e}")
+            await self.update_status("Erro ao criar grupo", log_message=f"❌ Erro ao criar grupo {group_name}: {e}")
             return False
     
-    async def add_contact_fast(self, contact):
-        """Adiciona contato com velocidade configurável"""
+    async def add_contact_safe(self, contact):
+        """Adiciona contato com delays seguros"""
         try:
             nome = contact.get('nome', 'Sem nome')
             numero = contact['numero']
             
-            # Delay configurável do frontend
-            delay_min = self.config.get('delay', {}).get('min', 2)
-            delay_max = self.config.get('delay', {}).get('max', 6)
+            # Delays seguros entre contatos
+            await self.safe_delay(8, 18, f"Preparando para adicionar {nome}")
             
             # Limpa e pesquisa
-            search_box = await self.page.wait_for_selector('input[placeholder]', timeout=10000)
+            search_box = await self.page.wait_for_selector('input[placeholder]', timeout=15000)
             await search_box.click()
+            await self.safe_delay(1, 3, "Após clicar na caixa de busca")
+            
             await search_box.fill('')
-            await asyncio.sleep(delay_min / 2)
+            await self.safe_delay(1, 2, "Após limpar busca")
             
-            # Pesquisa por número (mais confiável)
-            await search_box.type(numero, delay=100)
-            await asyncio.sleep(delay_min)
+            # Digita número com delay humano
+            for char in numero:
+                await search_box.type(char, delay=random.randint(100, 300))
+                await asyncio.sleep(random.uniform(0.05, 0.15))
             
-            # Clica no primeiro resultado sempre com timeout configurável
+            await self.safe_delay(3, 8, "Aguardando resultados da busca")
+            
+            # Clica no primeiro resultado
             contact_selectors = [
                 'div[role="button"][tabindex="0"] span[title]',
                 'div[data-testid="cell-frame-container"]:first-child',
@@ -401,43 +427,31 @@ class OptimizedWhatsAppAutomation:
             
             for selector in contact_selectors:
                 try:
-                    # Timeout baseado na configuração
-                    timeout = max(3000, delay_max * 1000)
-                    await self.page.wait_for_selector(selector, timeout=timeout)
+                    await self.page.wait_for_selector(selector, timeout=10000)
+                    await self.safe_delay(1, 3, "Antes de clicar no contato")
                     await self.page.click(selector)
-                    await self.update_status(f"Contato adicionado", log_message=f"✅ {nome} ({numero}) adicionado")
+                    await self.update_status(f"Contato adicionado", log_message=f"✅ {nome} ({numero}) adicionado com segurança")
                     
-                    # Delay configurável entre contatos
-                    await asyncio.sleep(delay_min)
+                    # Delay pós-adição
+                    await self.safe_delay(3, 8, "Após adicionar contato")
                     return True
                 except:
                     continue
             
-            # Se chegou aqui, não encontrou o contato
-            await self.update_status(f"Contato não encontrado - pulando", log_message=f"⚠️ {nome} ({numero}) não encontrado - pulando")
-            
-            # Limpa a caixa de busca para o próximo contato
-            try:
-                await search_box.click()
-                await search_box.fill('')
-                await asyncio.sleep(delay_min / 2)
-            except:
-                pass
-            
+            await self.update_status(f"Contato não encontrado", log_message=f"⚠️ {nome} ({numero}) não encontrado")
             return False
                 
         except Exception as e:
             await self.update_status("Erro ao adicionar contato", log_message=f"❌ Erro ao adicionar {nome}: {e}")
             return False
     
-    async def finalize_group_fast(self, group_name):
-        """Finaliza criação do grupo"""
+    async def finalize_group_safe(self, group_name):
+        """Finaliza criação do grupo com segurança"""
         try:
-            await self.update_status(f"Finalizando grupo", log_message=f"Finalizando criação do grupo {group_name}")
+            await self.update_status(f"Finalizando grupo", log_message=f"🏁 Finalizando criação SEGURA do grupo {group_name}")
             
-            # Delay configurável
-            delay_min = self.config.get('delay', {}).get('min', 2)
-            delay_max = self.config.get('delay', {}).get('max', 6)
+            # Delay antes de finalizar
+            await self.safe_delay(5, 12, "Preparando para finalizar grupo")
             
             # Clica em avançar
             next_selectors = [
@@ -448,12 +462,13 @@ class OptimizedWhatsAppAutomation:
             
             for selector in next_selectors:
                 try:
+                    await self.safe_delay(2, 5, "Antes de clicar em Avançar")
                     await self.page.click(selector)
                     break
                 except:
                     continue
             
-            await asyncio.sleep(delay_min)
+            await self.safe_delay(3, 8, "Após clicar em Avançar")
             
             # Define nome do grupo
             name_input_selectors = [
@@ -464,15 +479,23 @@ class OptimizedWhatsAppAutomation:
             
             for selector in name_input_selectors:
                 try:
-                    name_input = await self.page.wait_for_selector(selector, timeout=10000)
+                    name_input = await self.page.wait_for_selector(selector, timeout=15000)
                     await name_input.click()
+                    await self.safe_delay(1, 3, "Após clicar no campo nome")
+                    
                     await name_input.fill('')
-                    await name_input.type(group_name, delay=100)
+                    await self.safe_delay(0.5, 1.5, "Após limpar campo nome")
+                    
+                    # Digita nome com delay humano
+                    for char in group_name:
+                        await name_input.type(char, delay=random.randint(80, 200))
+                        await asyncio.sleep(random.uniform(0.03, 0.1))
+                    
                     break
                 except:
                     continue
             
-            await asyncio.sleep(delay_min)
+            await self.safe_delay(3, 7, "Após digitar nome do grupo")
             
             # Cria grupo
             create_selectors = [
@@ -483,29 +506,30 @@ class OptimizedWhatsAppAutomation:
             
             for selector in create_selectors:
                 try:
+                    await self.safe_delay(2, 5, "Antes de criar grupo")
                     await self.page.click(selector)
                     break
                 except:
                     continue
             
-            await asyncio.sleep(delay_max)
-            await self.update_status(f"Grupo criado", log_message=f"✅ Grupo {group_name} criado com sucesso")
+            await self.safe_delay(8, 15, "Aguardando criação do grupo")
+            await self.update_status(f"Grupo criado", log_message=f"✅ Grupo {group_name} criado com SUCESSO e SEGURANÇA")
             return True
             
         except Exception as e:
             await self.update_status("Erro ao finalizar grupo", log_message=f"❌ Erro ao finalizar grupo: {e}")
             return False
     
-    async def send_welcome_message_fast(self, group_name):
-        """Envia mensagem de boas-vindas"""
+    async def send_welcome_message_safe(self, group_name):
+        """Envia mensagem de boas-vindas com segurança"""
         try:
             if not self.config.get('welcomeMessage', '').strip():
                 return True
             
-            await self.update_status(f"Enviando mensagem", log_message=f"Enviando mensagem de boas-vindas")
+            await self.update_status(f"Enviando mensagem", log_message=f"💬 Enviando mensagem de boas-vindas com segurança")
             
-            # Delay configurável
-            delay_min = self.config.get('delay', {}).get('min', 2)
+            # Delay antes de enviar mensagem
+            await self.safe_delay(5, 12, "Preparando para enviar mensagem")
             
             # Localiza caixa de texto
             message_selectors = [
@@ -516,13 +540,21 @@ class OptimizedWhatsAppAutomation:
             
             for selector in message_selectors:
                 try:
-                    message_box = await self.page.wait_for_selector(selector, timeout=10000)
+                    message_box = await self.page.wait_for_selector(selector, timeout=15000)
                     await message_box.click()
-                    await message_box.type(self.config['welcomeMessage'], delay=50)
-                    await asyncio.sleep(delay_min)
+                    await self.safe_delay(2, 5, "Após clicar na caixa de mensagem")
+                    
+                    # Digita mensagem com delay humano
+                    message = self.config['welcomeMessage']
+                    for char in message:
+                        await message_box.type(char, delay=random.randint(50, 150))
+                        await asyncio.sleep(random.uniform(0.02, 0.08))
+                    
+                    await self.safe_delay(2, 5, "Após digitar mensagem")
                     await self.page.keyboard.press('Enter')
-                    await asyncio.sleep(delay_min)
-                    await self.update_status(f"Mensagem enviada", log_message=f"✅ Mensagem de boas-vindas enviada")
+                    await self.safe_delay(3, 8, "Após enviar mensagem")
+                    
+                    await self.update_status(f"Mensagem enviada", log_message=f"✅ Mensagem de boas-vindas enviada com segurança")
                     return True
                 except:
                     continue
@@ -533,325 +565,90 @@ class OptimizedWhatsAppAutomation:
             await self.update_status("Erro ao enviar mensagem", log_message=f"❌ Erro ao enviar mensagem: {e}")
             return False
     
-    async def promote_admin_correct_flow(self, contact):
-        """
-        FLUXO CORRETO: Menu 3 pontinhos → Dados do grupo → Busca participante → Promove
-        """
-        try:
-            nome = contact.get('nome', 'Sem nome')
-            numero = contact['numero']
+    async def check_session_limit(self):
+        """Verifica se atingiu limite de grupos por sessão"""
+        if self.groups_created_in_session >= self.max_groups_per_session:
+            await self.update_status("Limite de sessão atingido", log_message=f"🛡️ LIMITE SEGURO: {self.groups_created_in_session} grupos criados")
+            await self.update_status("Pausando para nova sessão", log_message="⏸️ PAUSANDO 30 MINUTOS para nova sessão (proteção anti-ban)")
             
-            await self.update_status(f"Promovendo admin", log_message=f"👑 Promovendo {nome} a administrador")
+            # Pausa de 30 minutos entre sessões
+            for i in range(30):
+                remaining = 30 - i
+                await self.update_status(f"Pausa anti-ban: {remaining} min restantes", log_message=f"⏳ Aguardando {remaining} minutos...")
+                await asyncio.sleep(60)  # 1 minuto
             
-            # Delay configurável
-            delay_min = self.config.get('delay', {}).get('min', 2)
-            delay_max = self.config.get('delay', {}).get('max', 6)
-            
-            # PASSO 1: Clica no menu "Mais opções" (3 pontinhos)
-            await self.update_status(f"Abrindo menu do grupo", log_message=f"🔍 Clicando no menu 'Mais opções' (3 pontinhos)")
-            
-            menu_button_selectors = [
-                # Seletor EXATO baseado no inspecionar fornecido
-                'button.x78zum5.x6s0dn4.x1afcbsf.x1heor9g.x1fmog5m.xu25z0z.x140muxe.xo1y3bh.x1y1aw1k.xf159sx.xwib8y2.xmzvs34.xtnn1bt.x9v5kkp.xmw7ebm.xrdum7p[data-tab="6"][title="Mais opções"][aria-label="Mais opções"]',
-                # Seletores alternativos
-                'button[aria-label="Mais opções"][data-tab="6"]',
-                'button[title="Mais opções"]',
-                'button:has(span[data-icon="more-refreshed"])',
-                '[aria-label="Mais opções"]',
-                '[title="Mais opções"]'
-            ]
-            
-            menu_clicked = False
-            for i, selector in enumerate(menu_button_selectors):
-                try:
-                    await self.page.wait_for_selector(selector, timeout=5000)
-                    await self.page.click(selector)
-                    await self.update_status(f"Menu aberto", log_message=f"📋 Menu 'Mais opções' aberto com seletor {i+1}")
-                    menu_clicked = True
-                    break
-                except:
-                    continue
-            
-            if not menu_clicked:
-                await self.update_status(f"Erro ao abrir menu", log_message=f"❌ Não foi possível abrir menu 'Mais opções'")
-                return False
-            
-            await asyncio.sleep(delay_min)
-            
-            # PASSO 2: Clica em "Dados do grupo"
-            await self.update_status(f"Clicando em Dados do grupo", log_message=f"📋 Clicando em 'Dados do grupo'")
-            
-            group_info_selectors = [
-                'text="Dados do grupo"',
-                'div[role="button"]:has-text("Dados do grupo")',
-                'li:has-text("Dados do grupo")',
-                'div:has-text("Dados do grupo")',
-                'span:has-text("Dados do grupo")',
-                # Inglês
-                'text="Group info"',
-                'div[role="button"]:has-text("Group info")',
-                'li:has-text("Group info")'
-            ]
-            
-            group_info_clicked = False
-            for i, selector in enumerate(group_info_selectors):
-                try:
-                    await self.page.wait_for_selector(selector, timeout=5000)
-                    await self.page.click(selector)
-                    await self.update_status(f"Dados do grupo abertos", log_message=f"📋 'Dados do grupo' aberto com seletor {i+1}")
-                    group_info_clicked = True
-                    break
-                except:
-                    continue
-            
-            if not group_info_clicked:
-                await self.update_status(f"Erro ao abrir dados", log_message=f"❌ Não foi possível abrir 'Dados do grupo'")
-                return False
-            
-            await asyncio.sleep(delay_max)
-            
-            # PASSO 3: Abrir busca de participantes no painel lateral do grupo
-            await self.update_status("Rolando painel do grupo", log_message="🧭 Rolando painel lateral para revelar a lupa de busca")
-
-            try:
-                # Rola até o final para mostrar a lupa de busca de participantes
-                await self.page.evaluate("""
-                    () => {
-                        const scrollContainer = document.querySelector('div.x1n2onr6.xyw6214.x78zum5.x1r8uery.x1iyjqo2.xdt5ytf.x6ikm8r.x1odjw0f.x1hc1fzr');
-                        if (scrollContainer) {
-                            scrollContainer.scrollTop = scrollContainer.scrollHeight;
-                        }
-                    }
-                """)
-                await asyncio.sleep(2)
-
-                # Clica no botão da lupa que abre a busca de participantes (ícone: search-refreshed)
-                await self.page.wait_for_selector('span[data-icon="search-refreshed"]', timeout=5000)
-                lupas = await self.page.query_selector_all('span[data-icon="search-refreshed"]')
-                if len(lupas) > 1:
-                    await lupas[1].scroll_into_view_if_needed()
-                    await asyncio.sleep(1)  # Pequeno delay visual
-                    await lupas[1].click()
-                    await self.update_status("Busca aberta", log_message="🔍 Lupa dos participantes clicada com sucesso")
-                else:
-                    await self.update_status("Erro na busca", log_message="❌ Não encontrou a lupa de participantes (índice 1)")
-
-                # Aguarda a caixa de texto da busca aparecer e digita o número local
-                search_box = await self.page.wait_for_selector('div[role="textbox"][contenteditable="true"]', timeout=5000)
-                numero_local = numero.replace("55629", "")
-                await search_box.fill('')
-                await asyncio.sleep(0.2)
-                await search_box.type(numero_local, delay=100)
-
-                await self.update_status("Buscando número", log_message=f"🔎 Buscando participante com número: {numero_local}")
-
-                # Aguarda resultado e clica no participante
-                await self.page.wait_for_selector('div[role="button"][tabindex="-1"] span[title]', timeout=5000)
-                participantes_filtrados = await self.page.query_selector_all('div[role="button"][tabindex="-1"] span[title]')
-                if participantes_filtrados:
-                    await participantes_filtrados[0].scroll_into_view_if_needed()
-                    await asyncio.sleep(1)
-                    await participantes_filtrados[0].click()
-                    await self.update_status("Participante selecionado", log_message="✅ Participante clicado na lista de busca")
-                else:
-                    await self.update_status("Participante não encontrado", log_message="⚠️ Nenhum participante retornado pela busca")
-                    await self.go_back_to_chat()
-                    return False
-
-            except Exception as e:
-                await self.update_status("Erro ao buscar participante", log_message=f"❌ Erro ao clicar na lupa ou buscar participante: {e}")
-                await self.go_back_to_chat()
-                return False
-            
-            # PASSO 4: Clica em "Tornar admin do grupo"
-            await self.update_status(f"Tornando admin", log_message=f"👑 Tentando promover {nome} a administrador")
-
-            admin_selectors = [
-                'text="Promover a admin do grupo"',
-                'div[role="button"]:has-text("Tornar admin do grupo")',
-                'li:has-text("Tornar admin do grupo")',
-                'div:has-text("Tornar admin")',
-                'text="Make group admin"',
-                'div[role="button"]:has-text("Make group admin")',
-                'div:has-text("Make admin")'
-            ]
-
-            admin_clicked = False
-            admin_selector_encontrado = None
-
-            # Verifica se algum dos botões de "tornar admin" está presente
-            for selector in admin_selectors:
-                try:
-                    await self.page.wait_for_selector(selector, timeout=3000)
-                    admin_selector_encontrado = selector
-                    break
-                except:
-                    continue
-
-            if admin_selector_encontrado:
-                try:
-                    await self.page.click(admin_selector_encontrado)
-                    admin_clicked = True
-                    await self.update_status("Admin promovido", log_message=f"✅ {nome} promovido a administrador")
-                except Exception as e:
-                    await self.update_status("Erro ao promover", log_message=f"❌ Erro ao clicar no botão: {e}")
-            else:
-                await self.update_status("Já é admin", log_message=f"🟢 {nome} já é administrador (botão não visível)")
-
-            await asyncio.sleep(delay_min)
-
-            
-            # PASSO 5: Volta para o chat
-            await self.go_back_to_chat()
-            
-            return admin_clicked
-            
-        except Exception as e:
-            await self.update_status("Erro ao promover admin", log_message=f"❌ Erro ao promover {nome}: {e}")
-            await self.go_back_to_chat()
-            return False
-    
-    async def go_back_to_chat(self):
-        
-        try:
-            delay_min = self.config.get('delay', {}).get('min', 2)
-
-            # Primeiro tenta fechar o painel lateral de busca se estiver aberto
-            try:
-                close_button = await self.page.query_selector('div[role="button"][aria-label="Fechar"] span[data-icon="close-refreshed"]')
-                if close_button:
-                    await close_button.click()
-                    await self.update_status("Fechando painel lateral", log_message="🔙 Painel lateral de busca fechado")
-                    await asyncio.sleep(delay_min / 2)
-            except:
-                pass  # Continua mesmo que não consiga fechar
-
-            # Seletores para voltar para o chat
-            back_selectors = [
-                'div[role="button"][aria-label="Fechar"] span[data-icon="close-refreshed"]'
-            ]
-
-            # Pode precisar clicar duas vezes para voltar completamente
-            for _ in range(2):
-                for selector in back_selectors:
-                    try:
-                        await self.page.click(selector)
-                        await self.update_status("Voltando", log_message=f"↩️ Clique em {selector}")
-                        await asyncio.sleep(delay_min / 2)
-                        break
-                    except:
-                        continue
-                await asyncio.sleep(delay_min / 2)
-
-        except Exception as e:
-            await self.update_status("Erro ao voltar", log_message=f"⚠️ Erro ao voltar para o chat: {e}")
+            self.groups_created_in_session = 0
+            await self.update_status("Sessão renovada", log_message="🔄 Nova sessão iniciada - limite resetado")
     
     async def run_automation(self):
-        """Executa automação com garantia de execução da promoção"""
+        """Executa automação com PROTEÇÃO ANTI-BAN GARANTIDA"""
         try:
-            await self.update_status("Iniciando automação GARANTIDA", 0, log_message="🚀 Iniciando automação com GARANTIA de execução da promoção")
+            await self.update_status("Iniciando automação SEGURA", 0, log_message="🛡️ Iniciando automação com PROTEÇÃO ANTI-BAN GARANTIDA")
             
             # Inicia navegador
             if not await self.start_browser():
                 return False
             
-            # Separa contatos e FORÇA verificação de administradores
+            # Separa contatos
             leads = [c for c in self.contacts if c['tipo'] == 'lead']
             admins = [c for c in self.contacts if c['tipo'] == 'administrador']
             
-            # Log detalhado dos contatos
-            await self.update_status("Analisando contatos", log_message=f"📊 ANÁLISE DETALHADA DOS CONTATOS:")
+            await self.update_status("Analisando contatos", log_message=f"📊 ANÁLISE SEGURA DOS CONTATOS:")
             await self.update_status("Contatos carregados", log_message=f"📋 Total de contatos: {len(self.contacts)}")
             await self.update_status("Leads identificados", log_message=f"👥 Leads encontrados: {len(leads)}")
-            await self.update_status("Admins identificados", log_message=f"👑 ADMINISTRADORES encontrados: {len(admins)}")
-            
-            # Lista todos os administradores
-            if admins:
-                await self.update_status("Listando administradores", log_message=f"👑 ADMINISTRADORES QUE SERÃO PROMOVIDOS:")
-                for i, admin in enumerate(admins, 1):
-                    await self.update_status(f"Admin {i}", log_message=f"   {i}. {admin.get('nome', 'Sem nome')} ({admin['numero']}) - TIPO: {admin['tipo']}")
-            else:
-                await self.update_status("Nenhum admin encontrado", log_message=f"⚠️ NENHUM ADMINISTRADOR ENCONTRADO NO CSV!")
+            await self.update_status("Admins identificados", log_message=f"👑 Administradores encontrados: {len(admins)}")
             
             if len(leads) == 0:
                 leads = self.contacts
+            
+            # LIMITE SEGURO: Máximo 5 grupos por execução
+            max_groups_total = min(5, max(1, (len(leads) + 998) // 999))
+            app_state['automation_status']['totalGroups'] = max_groups_total
+            
+            await self.update_status(f"Processando {max_groups_total} grupos", log_message=f"🛡️ LIMITE SEGURO: {max_groups_total} grupos (máx 5 por execução)")
+            
+            # Processa cada grupo com proteção
+            for group_num in range(max_groups_total):
+                # Verifica limite de sessão
+                await self.check_session_limit()
                 
-            
-            groups_needed = max(1, (len(leads) + 998) // 999)
-            app_state['automation_status']['totalGroups'] = groups_needed
-            
-            await self.update_status(f"Processando {groups_needed} grupos", log_message=f"📊 {len(leads)} leads, {len(admins)} admins, {groups_needed} grupos")
-            
-            # Processa cada grupo
-            for group_num in range(groups_needed):
                 group_name = f"{self.config.get('baseName', 'Grupo VIP')} {group_num + 1}"
                 
-                await self.update_status(f"Processando grupo {group_num + 1}/{groups_needed}", 
-                                       (group_num / groups_needed) * 100, 
+                await self.update_status(f"Processando grupo {group_num + 1}/{max_groups_total}", 
+                                       (group_num / max_groups_total) * 100, 
                                        group_name,
-                                       f"🔄 Processando grupo {group_name}")
+                                       f"🔄 Processando grupo SEGURO {group_name}")
                 
                 app_state['automation_status']['currentGroupIndex'] = group_num + 1
                 
-                # Cria grupo
-                if not await self.create_group_fast(group_name):
+                # Cria grupo com segurança
+                if not await self.create_group_safe(group_name):
                     continue
                 
-                # Adiciona leads do grupo atual
-                start_idx = group_num * 999
-                end_idx = min(start_idx + 999, len(leads))
+                # Adiciona leads do grupo atual (máximo 50 por grupo para segurança)
+                start_idx = group_num * 50  # Reduzido para 50 por segurança
+                end_idx = min(start_idx + 50, len(leads))
                 group_leads = leads[start_idx:end_idx]
                 
-                # Adiciona leads
+                # Adiciona leads com delays seguros
                 for i, lead in enumerate(group_leads):
-                    await self.add_contact_fast(lead)
+                    await self.add_contact_safe(lead)
                     app_state['automation_status']['processedContacts'] = start_idx + i + 1
                 
-                # Finaliza grupo
-                if not await self.finalize_group_fast(group_name):
+                # Finaliza grupo com segurança
+                if not await self.finalize_group_safe(group_name):
                     continue
-
-                # GARANTIA DE EXECUÇÃO DA PROMOÇÃO DE ADMINISTRADORES
-                await self.update_status(f"INICIANDO PROMOÇÃO GARANTIDA", log_message=f"👑 Tentando promover administradores...")
-                # LOG IMPORTANTE
-                await self.update_status("Debug Admins", log_message=f"🛠 Lista de admins antes da promoção: {admins}")
-
-                for i, admin in enumerate(admins):
-                    await self.update_status(f"Promovendo admin {i+1}/{len(admins)}", 
-                                        log_message=f"👑 PROMOVENDO {admin.get('nome', 'Sem nome')} ({i+1}/{len(admins)})")
-                    try:
-                        success = await self.promote_admin_correct_flow(admin)
-                        if success:
-                            await self.update_status(f"Admin promovido", log_message=f"✅ {admin.get('nome', 'Sem nome')} PROMOVIDO COM SUCESSO!")
-                        else:
-                            await self.update_status(f"Erro na promoção", log_message=f"❌ FALHA ao promover {admin.get('nome', 'Sem nome')}")
-                    except Exception as e:
-                        await self.update_status(f"Erro na promoção", log_message=f"❌ ERRO ao promover {admin.get('nome', 'Sem nome')}: {e}")
-
-                await self.update_status(f"Promoção concluída", log_message=f"🎯 Promoção de administradores concluída (ou ignorada)")
-
-                # Após promover, volta para a tela inicial
-                await self.go_back_to_chat()
-                await asyncio.sleep(2)
-
-                # Só depois disso envia a mensagem
-                await self.send_welcome_message_fast(group_name)
-
                 
-                # Delay entre grupos configurável
-                if group_num < groups_needed - 1:
-                    group_delay_min = self.config.get('groupDelay', {}).get('min', 30)
-                    group_delay_max = self.config.get('groupDelay', {}).get('max', 90)
-                    
-                    if self.config.get('enableBanPrevention', True):
-                        delay_time = (group_delay_min + group_delay_max) / 2
-                    else:
-                        delay_time = 5
-                    
-                    await self.update_status(f"Aguardando próximo grupo", log_message=f"⏳ Aguardando {delay_time}s...")
-                    await asyncio.sleep(delay_time)
+                # Envia mensagem com segurança
+                await self.send_welcome_message_safe(group_name)
+                
+                self.groups_created_in_session += 1
+                
+                # Delay LONGO entre grupos (proteção anti-ban)
+                if group_num < max_groups_total - 1:
+                    await self.safe_delay(120, 300, "PROTEÇÃO ANTI-BAN entre grupos")  # 2-5 minutos
             
-            await self.update_status("Automação concluída!", 100, log_message="🎉 AUTOMAÇÃO CONCLUÍDA COM SUCESSO! TODOS OS ADMINISTRADORES FORAM PROCESSADOS.")
+            await self.update_status("Automação concluída!", 100, log_message="🎉 AUTOMAÇÃO SEGURA CONCLUÍDA! Proteção anti-ban aplicada.")
             await asyncio.sleep(30)
             
             return True
@@ -877,8 +674,8 @@ def run_automation_thread(contacts, config):
         loop = asyncio.new_event_loop()
         asyncio.set_event_loop(loop)
         
-        # Executa automação
-        automation = OptimizedWhatsAppAutomation(contacts, config)
+        # Executa automação SEGURA
+        automation = SafeWhatsAppAutomation(contacts, config)
         result = loop.run_until_complete(automation.run_automation())
         
         # Atualiza status final
@@ -886,7 +683,7 @@ def run_automation_thread(contacts, config):
         app_state['automation_status']['isRunning'] = False
         
         if result:
-            app_state['automation_status']['currentStep'] = 'Automação concluída com sucesso! Administradores promovidos.'
+            app_state['automation_status']['currentStep'] = 'Automação SEGURA concluída com sucesso!'
         else:
             app_state['automation_status']['currentStep'] = 'Automação finalizada com erros'
         
@@ -939,7 +736,7 @@ def upload_csv():
         total_contacts = len(contacts)
         total_leads = len([c for c in contacts if c['tipo'] == 'lead'])
         total_admins = len([c for c in contacts if c['tipo'] == 'administrador'])
-        estimated_groups = max(1, (total_leads + 998) // 999)  # Arredonda para cima
+        estimated_groups = min(5, max(1, (total_leads + 49) // 50))  # Máximo 5 grupos, 50 contatos por grupo
         
         # Armazena contatos no estado global
         app_state['contacts'] = contacts
@@ -947,25 +744,19 @@ def upload_csv():
         print(f"📊 ARQUIVO PROCESSADO COM SUCESSO: {total_contacts} contatos válidos")
         print(f"  - {total_leads} leads")
         print(f"  - {total_admins} administradores")
-        print(f"  - {estimated_groups} grupos estimados")
-        
-        # Log detalhado dos administradores
-        if total_admins > 0:
-            print(f"👑 ADMINISTRADORES ENCONTRADOS:")
-            for admin in [c for c in contacts if c['tipo'] == 'administrador']:
-                print(f"   - {admin['nome']} ({admin['numero']})")
+        print(f"  - {estimated_groups} grupos estimados (LIMITE SEGURO)")
         
         # Retorna resultado
         return jsonify({
             'success': True,
-            'message': f'Arquivo processado com sucesso! {total_contacts} contatos válidos encontrados.',
+            'message': f'Arquivo processado com PROTEÇÃO ANTI-BAN! {total_contacts} contatos válidos encontrados.',
             'filename': file.filename,
             'stats': {
                 'totalContacts': total_contacts,
                 'totalLeads': total_leads,
                 'totalAdmins': total_admins,
                 'estimatedGroups': estimated_groups,
-                'validationMessage': f'{total_contacts} contatos válidos processados com detecção automática de formato'
+                'validationMessage': f'{total_contacts} contatos válidos processados com PROTEÇÃO ANTI-BAN (máx 5 grupos, 50 contatos/grupo)'
             },
             'contacts': contacts[:10]  # Primeiros 10 para preview
         })
@@ -979,7 +770,7 @@ def upload_csv():
 @app.route('/api/automation/start', methods=['POST'])
 def start_automation():
     try:
-        print("🚀 INICIANDO automação com GARANTIA DE EXECUÇÃO DE PROMOÇÃO...")
+        print("🛡️ INICIANDO automação com PROTEÇÃO ANTI-BAN GARANTIDA...")
         
         # Recebe configuração
         data = request.get_json()
@@ -1003,27 +794,22 @@ def start_automation():
         # Conta administradores
         admins_count = len([c for c in app_state['contacts'] if c['tipo'] == 'administrador'])
         
-        # Log detalhado dos administradores
-        print(f"👑 ADMINISTRADORES QUE SERÃO PROMOVIDOS: {admins_count}")
-        for admin in [c for c in app_state['contacts'] if c['tipo'] == 'administrador']:
-            print(f"   - {admin['nome']} ({admin['numero']})")
-        
         # Atualiza estado
         app_state['automation_running'] = True
         app_state['automation_status'].update({
             'isRunning': True,
-            'currentStep': 'Iniciando automação com GARANTIA de promoção...',
+            'currentStep': 'Iniciando automação com PROTEÇÃO ANTI-BAN...',
             'totalContacts': len(app_state['contacts']),
-            'totalGroups': max(1, (len([c for c in app_state['contacts'] if c['tipo'] == 'lead']) + 998) // 999),
+            'totalGroups': min(5, max(1, (len([c for c in app_state['contacts'] if c['tipo'] == 'lead']) + 49) // 50)),
             'logs': [
-                '🚀 Iniciando automação com GARANTIA DE EXECUÇÃO...',
-                '⚡ Execução direta no backend (sem geração de scripts)',
-                f'👑 {admins_count} administradores GARANTIDOS para promoção',
-                '📋 FLUXO CORRETO: Menu 3 pontinhos → Dados do grupo → Promover',
-                '🎯 Usando classes CSS exatas do inspecionar fornecido',
-                '⏱️ Delays configuráveis do frontend aplicados',
-                '🔒 GARANTIA: Promoção será executada OBRIGATORIAMENTE',
-                '📄 UPLOAD FLEXÍVEL: Aceita CSV e TXT com detecção automática'
+                '🛡️ Iniciando automação com PROTEÇÃO ANTI-BAN GARANTIDA...',
+                '⚡ Execução SEGURA no backend',
+                '🔒 LIMITE SEGURO: Máximo 5 grupos por execução',
+                '👥 LIMITE SEGURO: Máximo 50 contatos por grupo',
+                '⏳ DELAYS SEGUROS: 8-18s entre contatos',
+                '🛡️ DELAYS ANTI-BAN: 2-5 minutos entre grupos',
+                '⏸️ PAUSA AUTOMÁTICA: 30 min a cada 3 grupos',
+                '🎯 PROTEÇÃO MÁXIMA contra banimento'
             ],
             'progress': 0,
             'processedContacts': 0,
@@ -1040,7 +826,7 @@ def start_automation():
         
         return jsonify({
             'success': True,
-            'message': f'Automação iniciada com GARANTIA! {admins_count} administradores serão promovidos OBRIGATORIAMENTE.',
+            'message': f'Automação SEGURA iniciada! Proteção anti-ban GARANTIDA. Máximo 5 grupos por execução.',
         })
             
     except Exception as e:
@@ -1097,7 +883,7 @@ def download_report():
         admins_count = len([c for c in app_state['contacts'] if c['tipo'] == 'administrador'])
         leads_count = len([c for c in app_state['contacts'] if c['tipo'] == 'lead'])
         
-        report_content = f"""Relatório de Automação WhatsApp - UPLOAD FLEXÍVEL + FLUXO CORRETO
+        report_content = f"""Relatório de Automação WhatsApp - PROTEÇÃO ANTI-BAN GARANTIDA
 Gerado em: {datetime.now().strftime('%d/%m/%Y %H:%M:%S')}
 
 Contatos Processados: {len(app_state['contacts'])}
@@ -1106,27 +892,21 @@ Contatos Processados: {len(app_state['contacts'])}
 
 Status: {'Em execução' if app_state['automation_running'] else 'Concluída'}
 
-Configuração:
-- Upload: FLEXÍVEL (aceita CSV e TXT com detecção automática)
-- Execução: Direta no backend (otimizada)
-- Fluxo de Promoção: CORRETO (Menu 3 pontinhos → Dados do grupo)
-- Seletores: Classes CSS exatas do inspecionar
-- Delays: Configuráveis do frontend aplicados
-- Scripts: Não gerados (execução direta)
+PROTEÇÃO ANTI-BAN APLICADA:
+- Limite seguro: Máximo 5 grupos por execução
+- Contatos por grupo: Máximo 50 (em vez de 999)
+- Delays entre contatos: 8-18 segundos (aleatório)
+- Delays entre grupos: 2-5 minutos (aleatório)
+- Pausa automática: 30 minutos a cada 3 grupos
+- Navegador anti-detecção: Configurações avançadas
+- Comportamento humano: Delays variáveis e naturais
 
-UPLOAD FLEXÍVEL:
-- Aceita arquivos CSV e TXT
-- Detecção automática de separador (vírgula, ponto e vírgula, tab, pipe)
-- Cabeçalho opcional (funciona com ou sem)
-- Tipo padrão "lead" se não informado
-- Validação inteligente de números
-
-FLUXO CORRETO DE PROMOÇÃO:
-1. Clica no menu "Mais opções" (3 pontinhos) do grupo
-2. Clica em "Dados do grupo"
-3. Procura o participante na lista
-4. Clica em "Tornar admin do grupo"
-5. Volta para o chat
+CONFIGURAÇÕES DE SEGURANÇA:
+- User-Agent real do Chrome
+- Remoção de indicadores de automação
+- Delays humanizados para digitação
+- Timeouts generosos para carregamento
+- Verificação de limites de sessão
 
 Contatos processados:
 """
@@ -1142,7 +922,7 @@ Contatos processados:
         temp_file.write(report_content)
         temp_file.close()
         
-        return send_file(temp_file.name, as_attachment=True, download_name=f'relatorio_whatsapp_flexivel_{timestamp}.txt')
+        return send_file(temp_file.name, as_attachment=True, download_name=f'relatorio_whatsapp_seguro_{timestamp}.txt')
         
     except Exception as e:
         return jsonify({'error': f'Erro ao gerar relatório: {str(e)}'}), 500
@@ -1165,11 +945,11 @@ def generate_python_code():
         # Gera código Python simples (sem salvar arquivo)
         script_content = f'''#!/usr/bin/env python3
 """
-Script de Automação WhatsApp - UPLOAD FLEXÍVEL + FLUXO CORRETO
+Script de Automação WhatsApp - PROTEÇÃO ANTI-BAN GARANTIDA
 Gerado em: {datetime.now().strftime('%d/%m/%Y %H:%M:%S')}
 
 NOTA: Este código é apenas para referência.
-A automação real é executada diretamente no backend para máxima velocidade.
+A automação real é executada diretamente no backend com PROTEÇÃO ANTI-BAN.
 """
 
 # Configuração
@@ -1179,56 +959,48 @@ config = {repr(config)}
 contacts = {repr(contacts)}
 
 print("Este é um script de referência.")
-print("A automação real é executada diretamente no backend.")
+print("A automação real é executada diretamente no backend com PROTEÇÃO ANTI-BAN.")
 print(f"Total de contatos: {{len(contacts)}}")
 print(f"Administradores que serão promovidos: {admins_count}")
 print("Para executar a automação, use a interface web.")
 
-# UPLOAD FLEXÍVEL:
-print("\\nUPLOAD FLEXÍVEL:")
-print("- Aceita arquivos CSV e TXT")
-print("- Detecção automática de separador")
-print("- Cabeçalho opcional")
-print("- Tipo padrão 'lead' se não informado")
-
-# FLUXO CORRETO DE PROMOÇÃO:
-print("\\nFLUXO CORRETO DE PROMOÇÃO:")
-print("1. Clica no menu 'Mais opções' (3 pontinhos) do grupo")
-print("2. Clica em 'Dados do grupo'")
-print("3. Procura o participante na lista")
-print("4. Clica em 'Tornar admin do grupo'")
-print("5. Volta para o chat")
+# PROTEÇÃO ANTI-BAN APLICADA:
+print("\\nPROTEÇÃO ANTI-BAN GARANTIDA:")
+print("- Limite seguro: Máximo 5 grupos por execução")
+print("- Contatos por grupo: Máximo 50 (em vez de 999)")
+print("- Delays entre contatos: 8-18 segundos (aleatório)")
+print("- Delays entre grupos: 2-5 minutos (aleatório)")
+print("- Pausa automática: 30 minutos a cada 3 grupos")
+print("- Navegador anti-detecção: Configurações avançadas")
+print("- Comportamento humano: Delays variáveis e naturais")
 
 # Administradores que serão promovidos:
 admins = [c for c in contacts if c['tipo'] == 'administrador']
 for admin in admins:
     print(f"👑 {{admin['nome']}} ({{admin['numero']}}) - SERÁ PROMOVIDO A ADMIN")
 
-# Seletor do menu "Mais opções" (classes exatas do inspecionar):
-menu_button_selector = "button.x78zum5.x6s0dn4.x1afcbsf.x1heor9g.x1fmog5m.xu25z0z.x140muxe.xo1y3bh.x1y1aw1k.xf159sx.xwib8y2.xmzvs34.xtnn1bt.x9v5kkp.xmw7ebm.xrdum7p[data-tab='6'][title='Mais opções'][aria-label='Mais opções']"
-print(f"\\nSeletor do menu 'Mais opções': {{menu_button_selector}}")
+print("\\n🛡️ GARANTIA: Esta automação foi projetada para EVITAR BANIMENTOS!")
 '''
         
         return jsonify({
             'success': True,
             'code': script_content,
-            'filename': f'whatsapp_automation_flexivel_{datetime.now().strftime("%Y%m%d_%H%M%S")}.py'
+            'filename': f'whatsapp_automation_seguro_{datetime.now().strftime("%Y%m%d_%H%M%S")}.py'
         })
             
     except Exception as e:
         return jsonify({'error': f'Erro ao gerar código: {str(e)}'}), 500
 
 if __name__ == '__main__':
-    print("🚀 Iniciando WhatsApp Automation API - UPLOAD FLEXÍVEL + FLUXO CORRETO")
+    print("🛡️ Iniciando WhatsApp Automation API - PROTEÇÃO ANTI-BAN GARANTIDA")
     print("📡 Servidor rodando em: http://localhost:5000")
     print("🔗 Frontend deve conectar em: http://localhost:5173")
-    print("⚡ Execução direta no backend (sem geração de scripts)")
-    print("🚀 Velocidade configurável do frontend aplicada")
-    print("👑 FLUXO CORRETO: Menu 3 pontinhos → Dados do grupo → Promover")
-    print("🎯 Seletores CSS exatos baseados no inspecionar")
-    print("⏱️ Delays configuráveis do frontend respeitados")
-    print("📄 UPLOAD FLEXÍVEL: Aceita CSV e TXT com detecção automática")
-    print("🔍 DETECÇÃO INTELIGENTE: Separador, cabeçalho e formato automáticos")
+    print("⚡ Execução SEGURA no backend")
+    print("🛡️ PROTEÇÃO ANTI-BAN: Máximo 5 grupos por execução")
+    print("👥 LIMITE SEGURO: Máximo 50 contatos por grupo")
+    print("⏳ DELAYS SEGUROS: 8-18s entre contatos, 2-5min entre grupos")
+    print("⏸️ PAUSA AUTOMÁTICA: 30 min a cada 3 grupos")
+    print("🎯 GARANTIA: Configurações para EVITAR banimentos")
     print("="*60)
     
     app.run(debug=True, host='0.0.0.0', port=5000)

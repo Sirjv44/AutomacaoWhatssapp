@@ -1,5 +1,6 @@
 // Serviço para comunicação com a API backend
-const API_BASE_URL = 'http://18.119.121.25:10000/api';
+//const API_BASE_URL = 'http://18.119.121.25:10000/api';
+const API_BASE_URL = 'http://localhost:5000/api';
 
 
 export interface ApiResponse<T = any> {
