@@ -27,7 +27,8 @@ logger = logging.getLogger(__name__)
 
 from flask_cors import CORS
 app = Flask(__name__)
-CORS(app, resources={r"/api/*": {"origins": "*"}})
+CORS(app, origins=["https://automacao-whatssapp.vercel.app"])
+
 
 
 # Estado global da aplicação
