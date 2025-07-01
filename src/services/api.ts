@@ -1,7 +1,7 @@
 // Serviço para comunicação com a API backend
 //const API_BASE_URL = 'http://18.119.121.25:10000/api';
 //const API_BASE_URL = 'http://localhost:5000/api';
-const API_BASE_URL = 'https://f11d-18-119-121-25.ngrok-free.app/api';
+const API_BASE_URL = 'https://da66-18-119-121-25.ngrok-free.app/api';
 
 
 export interface ApiResponse<T = any> {
