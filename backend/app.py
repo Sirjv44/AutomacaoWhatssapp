@@ -313,7 +313,7 @@ class SafeWhatsAppAutomation:
                 delete window.cdc_adoQpoasnfa76pfcZLmcfl_Promise;
                 delete window.cdc_adoQpoasnfa76pfcZLmcfl_Symbol;
             """)
-            
+             
             self.page = await context.new_page()
             
             await self.update_status("Conectando ao WhatsApp Web...", log_message="🌐 Acessando WhatsApp Web")
