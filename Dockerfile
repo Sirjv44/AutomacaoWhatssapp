@@ -1,22 +1,21 @@
-# Usa imagem base do Playwright + Python
-FROM mcr.microsoft.com/playwright/python:v1.48.0-focal
+FROM consol/centos-xfce-vnc
 
-# Instala o servidor X virtual (para rodar browsers em modo não headless)
-RUN apt-get update && apt-get install -y \
-    xvfb \
-    && apt-get clean
+USER root
 
-# Cria diretório de trabalho
-WORKDIR /app
+# Instalações básicas
+RUN yum -y install python3 python3-pip git && \
+    pip3 install --upgrade pip
 
-# Copia os arquivos da aplicação
-COPY . .
+# Instala dependências do projeto
+COPY ./backend /app/backend
+WORKDIR /app/backend
+RUN pip3 install -r requirements.txt
 
-# Instala as dependências Python
-RUN pip install --upgrade pip && pip install -r requirements.txt
+# Instala o Playwright e os browsers
+RUN pip3 install playwright && playwright install chromium
 
-# Expõe a porta da aplicação
+# Expõe a porta da API Flask
 EXPOSE 10000
 
-# Inicia o Gunicorn com xvfb para suportar navegador com GUI
-CMD ["xvfb-run", "gunicorn", "backend.app:app", "--bind", "0.0.0.0:10000"]
+# Inicia o Gunicorn ao lado do VNC
+CMD /dockerstartup/vnc_startup.sh & gunicorn app:app --bind 0.0.0.0:10000

@@ -1,0 +1,16 @@
+version: "3.9"
+
+services:
+  app:
+    build: .
+    container_name: automacao-playwright
+    ports:
+      - "10000:10000"
+      - "8080:80"
+      - "6901:6901"
+    networks:
+      - app-network
+
+networks:
+  app-network:
+    driver: bridge
