@@ -5,11 +5,11 @@ import { LGPDConsent } from './components/LGPDConsent';
 import { IntegratedFileUpload } from './components/IntegratedFileUpload';
 import { AdvancedAutomationConfig } from './components/AdvancedAutomationConfig';
 import { IntegratedAutomationProgress } from './components/IntegratedAutomationProgress';
-import { AdvancedPythonGenerator } from './components/AdvancedPythonGenerator';
 import { ContactExtractor } from './components/ContactExtractor';
 import { ApiStatus } from './components/ApiStatus';
 import { useApiHealth } from './hooks/useApi';
 import { AdminConfigurator } from './components/AdminConfigurator';
+import VncViewer from './components/VncViewer';
 
 function App() {
   const [contacts, setContacts] = useState<Contact[]>([]);
@@ -208,6 +208,10 @@ function App() {
         isVisible={showLgpdModal} 
         onConsent={handleLgpdConsent} 
       />
+      <div>
+       <h1>Automação WhatsApp</h1>
+        <VncViewer />
+      </div>
       
       <div className="container mx-auto px-4 py-8 max-w-7xl">
         {/* Header */}
