@@ -8,7 +8,7 @@ const VncViewer = () => {
         Abaixo está o navegador automatizado. Você pode observar o Playwright controlando o WhatsApp Web:
       </p>
       <iframe
-        src="https://marvel-tie-jd-can.trycloudflare.com"
+        src="https://stem-carefully-cutting-families.trycloudflare.com"
         width="100%"
         height="600px"
         style={{
