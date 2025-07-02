@@ -5,11 +5,14 @@ services:
     build: .
     container_name: automacao-playwright
     ports:
-      - "10000:10000"
-      - "8080:80"
-      - "6901:6901"
+      - "10000:10000"  # API Flask (gunicorn)
+      - "6901:6901"    # noVNC
     networks:
       - app-network
+    restart: unless-stopped
+    # Se quiser, pode montar volumes para persistir dados:
+    # volumes:
+    #   - ./backend:/app/backend
 
 networks:
   app-network:
