@@ -40,13 +40,7 @@ def install_backend_dependencies():
         print(f"❌ Erro ao instalar dependências do backend: {e}")
 
 def start_backend():
-    """Inicia o servidor backend Flask"""
-    print("🐍 Iniciando backend Python...")
-    try:
-        process = subprocess.Popen([sys.executable, "app.py"], cwd="backend")
-        # Rodando em background, não espera finalizar aqui
-    except Exception as e:
-        print(f"❌ Erro no backend: {e}")
+    subprocess.Popen(["python", "backend/app.py"], cwd=".", shell=True)
 
 def start_frontend():
     """Inicia o servidor frontend React"""
